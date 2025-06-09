@@ -15,9 +15,8 @@ const Sidebar = ({ isOpen, onToggle }) => {
   ];
 
   return (
-    // Sidebar container with dark blue background and white text, inspired by the first image
     <div
-      className={`flex flex-col h-screen bg-blue-800 text-white shadow-lg transition-all duration-300 ${
+      className={`sticky top-0 flex flex-col h-screen bg-blue-800 text-white shadow-lg transition-all duration-300 ${
         isOpen ? "w-64" : "w-20"
       }`}
     >
@@ -46,8 +45,8 @@ const Sidebar = ({ isOpen, onToggle }) => {
               ${isOpen ? "justify-start" : "justify-center"}
               ${
                 isActive
-                  ? "bg-blue-600 text-white" // Highlight active item with lighter blue
-                  : "text-white hover:bg-blue-700" // Default and hover styles
+                  ? "bg-blue-600 text-white"
+                  : "text-white hover:bg-blue-700"
               }
             `}
           >
@@ -74,5 +73,9 @@ const Sidebar = ({ isOpen, onToggle }) => {
 };
 
 export default Sidebar;
-// This Sidebar component provides a responsive navigation menu for the admin dashboard.
-// It includes a toggle button to collapse or expand the sidebar, and uses NavLink for navigation.  
+// This code defines a responsive sidebar component for an admin dashboard.
+// It includes navigation links with icons, a toggle button, and styles for active states.
+// The sidebar expands to show full names when open and collapses to icons only when closed.
+// The sidebar is designed to be sticky, remaining visible on the left side of the screen as the user scrolls.
+// The component uses React Router's NavLink for navigation, allowing for active link styling.
+// The sidebar's width and content visibility change based on the `isOpen` prop, which is controlled by a toggle function passed as `onToggle`.   
