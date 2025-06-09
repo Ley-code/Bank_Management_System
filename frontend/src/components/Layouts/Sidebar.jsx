@@ -1,7 +1,9 @@
 import { ChevronsLeft, ChevronsRight } from "lucide-react";
 import { NavLink } from "react-router-dom";
 
+// Sidebar component for admin navigation
 const Sidebar = ({ isOpen, onToggle }) => {
+  // Define navigation items with paths and icons
   const navItems = [
     { id: 1, name: "Dashboard", path: "/admin/dashboard", icon: "🏦" },
     { id: 2, name: "Accounts", path: "/admin/accounts", icon: "💳" },
@@ -13,25 +15,29 @@ const Sidebar = ({ isOpen, onToggle }) => {
   ];
 
   return (
+    // Sidebar container with dark blue background and white text, inspired by the first image
     <div
-      className={`flex flex-col h-screen bg-blue-50 shadow-lg transition-all duration-300 ${
+      className={`flex flex-col h-screen bg-blue-800 text-white shadow-lg transition-all duration-300 ${
         isOpen ? "w-64" : "w-20"
       }`}
     >
-      {/* Header */}
-      <div className="p-4 border-b border-blue-100 flex items-center justify-center">
+      {/* Header section with bold title */}
+      <div className="p-4 border-b border-blue-600 flex items-center justify-center">
         {isOpen ? (
-          <h1 className="text-xl font-bold text-blue-800 cursor-pointer">Bank Dashboard</h1>
+          // Show full title when sidebar is open
+          <h1 className="text-xl font-bold text-white">Bank Dashboard</h1>
         ) : (
-          <div className="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center text-white">
+          // Show initial when sidebar is collapsed
+          <div className="w-8 h-8 bg-blue-900 rounded-full flex items-center justify-center text-white">
             B
           </div>
         )}
       </div>
 
-      {/* Navigation */}
+      {/* Navigation menu with items */}
       <nav className="flex-1 p-2">
         {navItems.map((item) => (
+          // NavLink for each menu item, with active state styling
           <NavLink
             key={item.id}
             to={item.path}
@@ -40,23 +46,26 @@ const Sidebar = ({ isOpen, onToggle }) => {
               ${isOpen ? "justify-start" : "justify-center"}
               ${
                 isActive
-                  ? "bg-blue-600 text-white"
-                  : "text-blue-800 hover:bg-blue-100"
+                  ? "bg-blue-600 text-white" // Highlight active item with lighter blue
+                  : "text-white hover:bg-blue-700" // Default and hover styles
               }
             `}
           >
+            {/* Icon for the menu item */}
             <span className="text-xl">{item.icon}</span>
+            {/* Show text when sidebar is open */}
             {isOpen && <span className="ml-3">{item.name}</span>}
           </NavLink>
         ))}
       </nav>
 
-      {/* Footer Toggle */}
-      <div className="p-2 border-t border-blue-100">
+      {/* Toggle button at the bottom */}
+      <div className="p-2 border-t border-blue-600">
         <button
           onClick={onToggle}
-          className="w-full p-2 rounded-lg hover:bg-blue-100 text-blue-800 flex justify-center"
+          className="w-full p-2 rounded-lg hover:bg-blue-700 text-white flex justify-center"
         >
+          {/* Toggle icon based on sidebar state */}
           {isOpen ? <ChevronsLeft /> : <ChevronsRight />}
         </button>
       </div>
@@ -65,3 +74,5 @@ const Sidebar = ({ isOpen, onToggle }) => {
 };
 
 export default Sidebar;
+// This Sidebar component provides a responsive navigation menu for the admin dashboard.
+// It includes a toggle button to collapse or expand the sidebar, and uses NavLink for navigation.  
