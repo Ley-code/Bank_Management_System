@@ -1,6 +1,7 @@
 import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import { ProtectedRoute } from "./components/Auth/ProtectedRoute";
 import AdminLayout from "./components/Layouts/AdminLayout";
+import CustomerLayout from "./components/Layouts/CustomerLayout";
 import Accounts from "./components/Admin/Accounts";
 import Loans from "./components/Admin/Loans";
 import Transactions from "./components/Admin/Transactions";
@@ -8,6 +9,9 @@ import Branches from "./components/Admin/Branches";
 import Employees from "./components/Admin/Employees";
 import Customers from "./components/Admin/Customers";
 import AdminDashboard from "./components/Admin/AdminDashboard";
+import CustomerDashboard from "./components/Customer/Dashboard";
+import Deposit from "./components/Customer/Deposit";
+import Withdrawal from "./components/Customer/Withdraw";
 import Login from "./pages/Auth/Login";
 
 const App = () => {
@@ -37,7 +41,24 @@ const App = () => {
           />
         </Route>
 
-        <Route path="/" element={<Navigate to="/admin/dashboard" replace />} />
+        {/* Customer Routes */}
+        <Route
+          element={
+            <ProtectedRoute >
+              <CustomerLayout />
+            </ProtectedRoute>
+          }
+        >
+          <Route path="/customer/dashboard" element={<CustomerDashboard />} />
+          <Route path="/customer/deposit" element={<Deposit />} />
+          <Route path="/customer/withdraw" element={<Withdrawal />} />
+          <Route
+            path="/customer/*"
+            element={<Navigate to="/customer/dashboard" replace />}
+          />
+        </Route>
+
+        <Route path="/" element={<Navigate to="/" replace />} />
       </Routes>
     </BrowserRouter>
   );
