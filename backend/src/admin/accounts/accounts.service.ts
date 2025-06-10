@@ -69,9 +69,10 @@ export class AccountsService {
             data: accounts.map(account => ({
                 accountNumber: account.accountNumber,
                 accountType: account.accountType,
-                currencyCode: account.currencyCode,
-                fullname: account.customer.fullName,
-                balance: account.balance,            
+                accountCurrencyCode: account.currencyCode,
+                accountHolder: account.customer.fullName,
+                accountHolderPhone: account.customer.phone,
+                accountBalance: account.balance,            
                 branchName: account.branch.branchName,
                 
             })),
