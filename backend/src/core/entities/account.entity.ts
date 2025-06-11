@@ -8,6 +8,11 @@ export enum AccountType {
     CHECKING = 'CHECKING',
     BUSINESS = 'BUSINESS',
 }
+export enum StatusType {
+    ACTIVE = 'ACTIVE',
+    INACTIVE = 'INACTIVE',
+    CLOSED = 'CLOSED',
+}
 
 @Entity()
 export class Account {
@@ -25,6 +30,9 @@ export class Account {
 
     @Column({nullable: false, default: 0})
     balance: number;
+
+    @Column({ type: 'enum', enum: StatusType, default: StatusType.ACTIVE })
+    status: StatusType; 
 
     @Column({ type: 'varchar', length: 3, default: 'ETB' }) 
     currencyCode: string;
