@@ -30,6 +30,10 @@ export class UserController {
     transfer(@Body() transferDto: TransferDto) {
         return this.userService.transferFunds(transferDto);
     }
+    @Get(':id/transactions/:accountNumber')
+    getUserTransactions(@Param('id') id: string ,@Param('accountNumber') accountNumber: string) {
+        return this.userService.getUserTransactions(id, accountNumber);
+    }
     
 
 }

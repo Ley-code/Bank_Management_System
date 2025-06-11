@@ -77,7 +77,8 @@ export class AccountsService {
                 accountCurrencyCode: account.currencyCode,
                 accountHolder: account.customer.fullName,
                 accountHolderPhone: account.customer.phone,
-                accountBalance: account.balance,            
+                accountBalance: account.balance,   
+                accountDateCreated: account.createdAt.toISOString().split('T')[0],  
                 branchName: account.branch.branchName,
                 
             })),
