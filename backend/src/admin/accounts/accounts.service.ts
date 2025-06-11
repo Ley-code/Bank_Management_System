@@ -78,6 +78,7 @@ export class AccountsService {
                 accountHolder: account.customer.fullName,
                 accountHolderPhone: account.customer.phone,
                 accountBalance: account.balance,   
+                accountStatus: account.status,
                 accountDateCreated: account.createdAt.toISOString().split('T')[0],  
                 branchName: account.branch.branchName,
                 
