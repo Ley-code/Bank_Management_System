@@ -6,14 +6,12 @@ import { DatabaseModule } from './core/database/database.module'; // Adjust the 
 
 import { CustomerModule } from './admin/customers/customer.module';
 import { AdminModule } from './admin/admin.module';
-import { AccountsService } from './admin/accounts/accounts.service';
-import { AccountsController } from './admin/accounts/accounts.controller';
-import { AccountsModule } from './admin/accounts/accounts.module';
+import { UserModule } from './user/user.module';
 @Module({
   imports: [ConfigModule.forRoot({
     isGlobal: true,
     envFilePath: '.env', 
-  }) , DatabaseModule, CustomerModule, AdminModule],
+  }) , DatabaseModule, AdminModule, UserModule],
   controllers: [AppController],
   providers: [AppService],
 })
