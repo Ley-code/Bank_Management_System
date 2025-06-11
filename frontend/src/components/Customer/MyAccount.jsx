@@ -2,16 +2,19 @@ import { useState, useEffect } from 'react';
 import { ArrowUpRight, ArrowDownLeft, CreditCard, Wallet } from 'lucide-react';
 
 const MyAccount = () => {
+  // State for managing accounts data
   const [accounts, setAccounts] = useState([]);
+  // State for currently selected account
   const [selectedAccount, setSelectedAccount] = useState(null);
+  // State for transaction history
   const [transactions, setTransactions] = useState([]);
 
+  // Fetch accounts data when component mounts
   useEffect(() => {
-    // Fetch accounts data
-    // This would be replaced with actual API call
+    // TODO: Replace with actual API call
     const fetchAccounts = async () => {
       try {
-        // Mock data for accounts
+        // Mock data for demonstration
         const mockAccounts = [
           {
             id: 1,
@@ -42,14 +45,14 @@ const MyAccount = () => {
     fetchAccounts();
   }, []);
 
+  // Fetch transactions when selected account changes
   useEffect(() => {
-    // Fetch transactions for selected account
-    // This would be replaced with actual API call
+    // TODO: Replace with actual API call
     const fetchTransactions = async () => {
       if (!selectedAccount) return;
 
       try {
-        // Mock data for transactions
+        // Mock data for demonstration
         const mockTransactions = [
           {
             id: 1,
@@ -101,6 +104,7 @@ const MyAccount = () => {
     fetchTransactions();
   }, [selectedAccount]);
 
+  // Helper function to get appropriate icon based on transaction type
   const getTransactionIcon = (type) => {
     switch (type) {
       case 'deposit':
@@ -114,6 +118,7 @@ const MyAccount = () => {
     }
   };
 
+  // Helper function to format dates
   const formatDate = (dateString) => {
     return new Date(dateString).toLocaleDateString('en-US', {
       year: 'numeric',
@@ -123,7 +128,9 @@ const MyAccount = () => {
   };
 
   return (
+    // Main container with responsive padding
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      {/* Page header */}
       <div className="mb-8">
         <h1 className="text-2xl font-bold text-gray-900">My Accounts</h1>
         <p className="mt-1 text-sm text-gray-500">
@@ -131,9 +138,10 @@ const MyAccount = () => {
         </p>
       </div>
 
-      {/* Account Selection */}
+      {/* Account selection grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
         {accounts.map((account) => (
+          // Account card with interactive selection
           <div
             key={account.id}
             onClick={() => setSelectedAccount(account)}
@@ -143,6 +151,7 @@ const MyAccount = () => {
                 : 'border-gray-200 hover:border-blue-300'
             }`}
           >
+            {/* Account header with type and status */}
             <div className="flex justify-between items-start">
               <div>
                 <h3 className="text-lg font-semibold text-gray-900">
@@ -154,6 +163,7 @@ const MyAccount = () => {
                 {account.status}
               </span>
             </div>
+            {/* Account balance and opening date */}
             <div className="mt-4">
               <p className="text-2xl font-bold text-gray-900">
                 ${account.balance.toLocaleString()}
@@ -166,9 +176,10 @@ const MyAccount = () => {
         ))}
       </div>
 
-      {/* Transaction History */}
+      {/* Transaction history section */}
       {selectedAccount && (
         <div className="bg-white rounded-lg shadow">
+          {/* Transaction history header */}
           <div className="p-6 border-b border-gray-200">
             <h2 className="text-lg font-semibold text-gray-900">
               Transaction History
@@ -177,12 +188,15 @@ const MyAccount = () => {
               {selectedAccount.type} Account - {selectedAccount.accountNumber}
             </p>
           </div>
+          {/* Transaction list */}
           <div className="divide-y divide-gray-200">
             {transactions.map((transaction) => (
+              // Individual transaction row
               <div
                 key={transaction.id}
                 className="p-4 flex items-center justify-between hover:bg-gray-50"
               >
+                {/* Transaction details */}
                 <div className="flex items-center space-x-4">
                   <div className="p-2 bg-gray-100 rounded-full">
                     {getTransactionIcon(transaction.type)}
@@ -196,6 +210,7 @@ const MyAccount = () => {
                     </p>
                   </div>
                 </div>
+                {/* Transaction amount and status */}
                 <div className="text-right">
                   <p
                     className={`text-sm font-medium ${
