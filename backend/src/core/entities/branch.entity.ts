@@ -1,6 +1,7 @@
 import { Entity, PrimaryColumn, Column, OneToMany} from 'typeorm';
 import { Account } from './account.entity';
 import { Transaction } from './transaction.entity';
+import { Employee } from './employee.entity';
 
 @Entity()
 export class Branch {
@@ -19,8 +20,12 @@ export class Branch {
     @Column({nullable: false, default: 0 })
     totalLoans: number;
 
+    @OneToMany(() => Employee, (employee) => employee.branch)
+    employees: Employee[]; 
+
     @Column({ type: 'timestamp', default: () => 'CURRENT_TIMESTAMP' })
     createdAt: Date;
+    
     @Column({ type: 'timestamp', default: () => 'CURRENT_TIMESTAMP', onUpdate: 'CURRENT_TIMESTAMP' })
     updatedAt: Date;
 

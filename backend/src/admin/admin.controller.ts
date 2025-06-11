@@ -9,7 +9,6 @@ export class AdminController {
     constructor(
         private readonly adminService: AdminService
     ) {} 
-
     @Get('/transactions')
     getAllTransactions() {
         return this.adminService.getAllTransactions();
