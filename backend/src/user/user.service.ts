@@ -196,4 +196,43 @@ export class UserService {
             message: 'Transfer successful',
         };
     }
+
+    async getUserTransactions(customerId: string, accountNumber: string) {
+        const customer = await this.customerRepository.findOne({
+            where: { id: customerId },
+            relations: ['accounts'],
+        });
+
+        if (!customer) {
+            throw new NotFoundException('Customer not found');
+        }
+
+        const account = customer.accounts.find(acc => acc.accountNumber === accountNumber);
+        if (!account) {
+            throw new NotFoundException('Account not found for this customer');
+        }
+        const transactions = await this.transactionRepository.find({
+            where: { account: { accountNumber: account.accountNumber } },
+            order: { date: 'DESC' }, // Order by date, most recent first
+            relations: ['account'],
+        });
+        if (!transactions || transactions.length === 0) {
+            throw new NotFoundException('No transactions found for this account');
+        }
+        // Map transactions to a simpler format if needed
+        const mappedTransactions = transactions.map(tx => ({
+            id: tx.id,
+            amount: tx.amount,
+            type: tx.type,
+            direction: tx.direction,
+            date: tx.date,
+            notes: tx.notes,
+        }));
+
+        return {
+            status: 'success',
+            data: mappedTransactions,
+            message: 'User transactions retrieved successfully',
+        };
+    }
 }
