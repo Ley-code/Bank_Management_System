@@ -1,13 +1,14 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Account } from 'src/core/entities/account.entity';
-import { Repository } from 'typeorm';
-import { Customer } from 'src/core/entities/customer.entity';
-import { CreateAccountDto } from './dto/CreateAccountDto';
 import { Branch } from 'src/core/entities/branch.entity';
+import { Customer } from 'src/core/entities/customer.entity';
+import { Repository } from 'typeorm';
+import { CreateAccountDto } from './dto/CreateAccountDto';
 
 @Injectable()
 export class AccountsService {
+
 
     constructor(
         @InjectRepository(Account)
