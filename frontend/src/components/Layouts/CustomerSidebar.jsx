@@ -6,7 +6,9 @@ const CustomerSidebar = ({ isOpen, onToggle }) => {
   const navItems = [
     { id: 1, name: "Dashboard", path: "/customer/dashboard", icon: "🏦" },
     { id: 2, name: "Apply for Loan", path: "/customer/loan", icon: "💰" },
-    { id: 3, name: "Transfer Money", path: "/customer/transfer", icon: "💸" },
+    { id: 3, name: "Transfer Money", path: "/customer/transfer", icon: "🤝" },
+    { id: 3, name: "Withdraw Money", path: "/customer/withdraw", icon: "💸" },
+
   ];
 
   return (
