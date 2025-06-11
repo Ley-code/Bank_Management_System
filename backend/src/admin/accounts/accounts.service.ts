@@ -35,13 +35,18 @@ export class AccountsService {
         if( !existingBank) {
             throw new NotFoundException('Branch not found');
         }
+        console.log('balance,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,', createAccountDto.initialBalance);
         // Create the account and associate it with the customer
         const account = this.accountsRepository.create({
             ...createAccountDto,
+            balance: createAccountDto.initialBalance,
             customer: customer,
             branch: existingBank,
         });
         const savedAccount = await this.accountsRepository.save(account);
+
+        existingBank.totalDeposits+= createAccountDto.initialBalance
+        await this.branchRepository.save(existingBank)
 
         return {
             status: 'success',
@@ -56,7 +61,7 @@ export class AccountsService {
 
     }
 
-    async getAllAcounts(){
+    async getAllAccounts(){
         const accounts = await this.accountsRepository.find({
             relations: ['customer', 'branch'],
         });
@@ -78,6 +83,20 @@ export class AccountsService {
             })),
             message: 'Accounts retrieved successfully',
         };
+    }
+
+    async deleteAccount(id: string){
+        const account = await this.accountsRepository.findOne({
+            where: { accountNumber: id }
+        });
+        if (!account) {
+            throw new NotFoundException('Account not found');
+        }
+        await this.accountsRepository.delete({ accountNumber: id });
+
+        return {
+            status : "success"
+        }
     }
     
 }

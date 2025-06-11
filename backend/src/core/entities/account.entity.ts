@@ -1,6 +1,8 @@
 import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, CreateDateColumn, UpdateDateColumn, ManyToMany, JoinTable, OneToOne, PrimaryColumn, BeforeInsert } from 'typeorm';
 import { Customer } from './customer.entity';
 import { Branch } from './branch.entity';
+import { Transaction } from './transaction.entity';
+import { OneToMany } from 'typeorm';
 export enum AccountType {
     SAVINGS = 'SAVINGS',
     CHECKING = 'CHECKING',
@@ -21,23 +23,26 @@ export class Account {
     @Column({ type: 'enum', enum: AccountType })
     accountType: AccountType;
 
-    @Column({ type: 'decimal', precision: 15, scale: 2, default: 0 })
+    @Column({nullable: false, default: 0})
     balance: number;
 
-    @Column({ type: 'varchar', length: 3, default: 'ETB' }) // Assuming USD as default currency
+    @Column({ type: 'varchar', length: 3, default: 'ETB' }) 
     currencyCode: string;
 
     @ManyToOne(() => Customer, customer => customer.accounts, { 
         eager: true, 
-        onDelete: 'CASCADE' // This enables cascade delete
+        onDelete: 'CASCADE'
     })
     customer: Customer;
 
     @ManyToOne(() => Branch, branch => branch.accounts, { 
         eager: true, 
-        onDelete: 'SET NULL' // or 'CASCADE' if you want to delete accounts when a branch is deleted
+        onDelete: 'SET NULL'
     })
     branch: Branch;
+
+    @OneToMany(() => Transaction, transaction => transaction.account, { cascade: true })
+    transactions: Transaction[];
 
     @Column({ type: 'timestamp', default: () => 'CURRENT_TIMESTAMP' })
     createdAt: Date;
