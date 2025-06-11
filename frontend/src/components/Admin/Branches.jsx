@@ -51,76 +51,29 @@ const Branches = () => {
     formState: { errors },
   } = useForm();
 
-  // ---- Load Dummy Data on Mount ----
+  // ---- Load Branch Data from API on Mount ----
   useEffect(() => {
-    const dummyBranches = [
-      {
-        id: 1,
-        branchName: "Main Branch",
-        city: "Addis Ababa",
-        assets: 5000000,
-        totalDeposits: 2000000,
-        totalWithdrawals: 1500000,
-        totalLoans: 1000000,
-        lastUpdated: "2024-06-01",
-      },
-      {
-        id: 2,
-        branchName: "Bole Branch",
-        city: "Addis Ababa",
-        assets: 3000000,
-        totalDeposits: 1200000,
-        totalWithdrawals: 800000,
-        totalLoans: 600000,
-        lastUpdated: "2024-06-02",
-      },
-      {
-        id: 3,
-        branchName: "Bahir Dar Branch",
-        city: "Bahir Dar",
-        assets: 2000000,
-        totalDeposits: 900000,
-        totalWithdrawals: 500000,
-        totalLoans: 400000,
-        lastUpdated: "2024-06-03",
-      },
-      {
-        id: 4,
-        branchName: "Mekelle Branch",
-        city: "Mekelle",
-        assets: 1500000,
-        totalDeposits: 600000,
-        totalWithdrawals: 350000,
-        totalLoans: 300000,
-        lastUpdated: "2024-06-04",
-      },
-      {
-        id: 5,
-        branchName: "Gondar Branch",
-        city: "Gondar",
-        assets: 1000000,
-        totalDeposits: 400000,
-        totalWithdrawals: 250000,
-        totalLoans: 200000,
-        lastUpdated: "2024-06-05",
-      },
-      {
-        id: 6,
-        branchName: "Jimma Branch",
-        city: "Jimma",
-        assets: 800000,
-        totalDeposits: 300000,
-        totalWithdrawals: 200000,
-        totalLoans: 150000,
-        lastUpdated: "2024-06-06",
-      },
-    ];
-    setBranches(dummyBranches);
-
-    // TODO: Replace with real API call:
-    // fetch("/api/admin/branches")
-    //   .then((res) => res.json())
-    //   .then((data) => setBranches(data));
+    // Fetch branches from backend API
+    const fetchBranches = async () => {
+      try {
+        const response = await fetch("http://localhost:8000/api/admin/branch", {
+          method: "GET",
+          headers: { "Content-Type": "application/json" },
+        });
+        if (!response.ok) throw new Error("Failed to fetch branches");
+        const data = await response.json();
+        // Expecting data.data to be an array of branches
+        if (data && data.data) {
+          setBranches(data.data);
+        } else {
+          setBranches([]);
+        }
+      } catch (error) {
+        console.error("Error fetching branches:", error);
+        setBranches([]);
+      }
+    };
+    fetchBranches();
   }, []);
 
   // ---- Derived: Filtered & Searched Branches ----
@@ -309,23 +262,37 @@ const Branches = () => {
                   className="even:bg-gray-50 odd:bg-white hover:bg-gray-100"
                 >
                   <td className="px-4 py-3 text-sm text-gray-700">
-                    {b.branchName}
-                  </td>
-                  <td className="px-4 py-3 text-sm text-gray-700">{b.city}</td>
-                  <td className="px-4 py-3 text-sm text-gray-700">
-                    ${b.assets.toLocaleString()}
+                    {b.branchName || "-"}
                   </td>
                   <td className="px-4 py-3 text-sm text-gray-700">
-                    ${b.totalDeposits.toLocaleString()}
+                    {b.city || "-"}
                   </td>
                   <td className="px-4 py-3 text-sm text-gray-700">
-                    ${b.totalWithdrawals.toLocaleString()}
+                    $
+                    {typeof b.assets === "number"
+                      ? b.assets.toLocaleString()
+                      : "0"}
                   </td>
                   <td className="px-4 py-3 text-sm text-gray-700">
-                    ${b.totalLoans.toLocaleString()}
+                    $
+                    {typeof b.totalDeposits === "number"
+                      ? b.totalDeposits.toLocaleString()
+                      : "0"}
                   </td>
                   <td className="px-4 py-3 text-sm text-gray-700">
-                    {b.lastUpdated}
+                    $
+                    {typeof b.totalWithdrawals === "number"
+                      ? b.totalWithdrawals.toLocaleString()
+                      : "0"}
+                  </td>
+                  <td className="px-4 py-3 text-sm text-gray-700">
+                    $
+                    {typeof b.totalLoans === "number"
+                      ? b.totalLoans.toLocaleString()
+                      : "0"}
+                  </td>
+                  <td className="px-4 py-3 text-sm text-gray-700">
+                    {b.lastUpdated || "-"}
                   </td>
                   <td className="px-4 py-3 text-sm text-gray-700 flex space-x-2">
                     {/* Edit Button */}
@@ -580,4 +547,3 @@ export default Branches;
 // The component is designed to be accessible, with proper labels and focus management for form elements.
 // The component is built with best practices in mind, ensuring maintainability and scalability.
 // The component is ready for production use with proper error handling and user feedback mechanisms.
-

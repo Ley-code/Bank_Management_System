@@ -7,13 +7,18 @@ import { useForm } from "react-hook-form";
 /**
  * Customers component (Admin view)
  *
- * - Ensures no horizontal scroll (overflow-x-hidden on main container)
- * - Sidebar stickiness and consistent width handled in AdminLayout
- * - Email validation regex fixed
+ * - Fetches real customer data from backend (GET /api/admin/customers)
+ * - Displays in a paginated table, with search/filter capabilities
+ * - Allows adding, editing, viewing, and deleting customers
+ * - Uses React Hook Form for add/edit forms
+ *
+ * Advice:
+ *   - Ensure your backend responds with the fields: id, fullName, email, phone, city, subCity, zone, woreda, houseNumber, createdAt
+ *   - Consider centralizing API calls into a separate “api.js” utility file once you have multiple endpoints.
  */
 
 const Customers = () => {
-  // ---- State: Customers List (dummy data) ----
+  // ---- State: Customers List (initially empty, replaced by API data) ----
   const [customers, setCustomers] = useState([]);
 
   // ---- State: Modal Controls ----
@@ -22,9 +27,8 @@ const Customers = () => {
   const [editingCustomer, setEditingCustomer] = useState(null);
   const [viewingCustomer, setViewingCustomer] = useState(null);
 
-  // ---- State: Search, Filter, Pagination ----
+  // ---- State: Search & Pagination ----
   const [searchTerm, setSearchTerm] = useState("");
-  const [filterStatus, setFilterStatus] = useState("All");
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 5;
 
@@ -37,156 +41,49 @@ const Customers = () => {
     formState: { errors },
   } = useForm();
 
-  // ---- Effect: Load Dummy Data on Mount ----
+  // ---- Effect: Fetch Real Customer Data on Mount ----
   useEffect(() => {
-    const dummyCustomers = [
-      {
-        id: 1,
-        fullName: "John Doe",
-        email: "john@example.com",
-        phone: "123-456-7890",
-        city: "Addis Ababa",
-        subcity: "Bole",
-        zone: "Zone 01",
-        woreda: "Woreda 03",
-        houseNo: "12A",
-        status: "Active",
-        dateJoined: "2024-01-10",
-      },
-      {
-        id: 2,
-        fullName: "Jane Smith",
-        email: "jane@example.com",
-        phone: "098-765-4321",
-        city: "Bahir Dar",
-        subcity: "Fasil",
-        zone: "Zone 02",
-        woreda: "Woreda 05",
-        houseNo: "8B",
-        status: "Active",
-        dateJoined: "2024-02-15",
-      },
-      {
-        id: 3,
-        fullName: "Alice Johnson",
-        email: "alice@example.com",
-        phone: "555-555-5555",
-        city: "Dire Dawa",
-        subcity: "Kebele 02",
-        zone: "Zone 03",
-        woreda: "Woreda 01",
-        houseNo: "24C",
-        status: "Inactive",
-        dateJoined: "2024-03-01",
-      },
-      {
-        id: 4,
-        fullName: "Bob Brown",
-        email: "bob@example.com",
-        phone: "444-444-4444",
-        city: "Mekelle",
-        subcity: "Gendo",
-        zone: "Zone 04",
-        woreda: "Woreda 07",
-        houseNo: "18",
-        status: "Active",
-        dateJoined: "2024-04-20",
-      },
-      {
-        id: 5,
-        fullName: "Emma Davis",
-        email: "emma@example.com",
-        phone: "333-333-3333",
-        city: "Gondar",
-        subcity: "Jan Amora",
-        zone: "Zone 05",
-        woreda: "Woreda 02",
-        houseNo: "5",
-        status: "Active",
-        dateJoined: "2024-05-05",
-      },
-      {
-        id: 6,
-        fullName: "Michael Lee",
-        email: "michael@example.com",
-        phone: "222-222-2222",
-        city: "Awassa",
-        subcity: "Menaheriya",
-        zone: "Zone 06",
-        woreda: "Woreda 04",
-        houseNo: "11",
-        status: "Active",
-        dateJoined: "2024-06-12",
-      },
-      {
-        id: 7,
-        fullName: "Sarah Wilson",
-        email: "sarah@example.com",
-        phone: "111-111-1111",
-        city: "Harar",
-        subcity: "Jugol",
-        zone: "Zone 07",
-        woreda: "Woreda 09",
-        houseNo: "9",
-        status: "Inactive",
-        dateJoined: "2024-07-22",
-      },
-      {
-        id: 8,
-        fullName: "David Taylor",
-        email: "david@example.com",
-        phone: "999-999-9999",
-        city: "Hawassa",
-        subcity: "Tulu Dimtu",
-        zone: "Zone 08",
-        woreda: "Woreda 06",
-        houseNo: "30",
-        status: "Active",
-        dateJoined: "2024-08-30",
-      },
-      {
-        id: 9,
-        fullName: "Lisa Anderson",
-        email: "lisa@example.com",
-        phone: "888-888-8888",
-        city: "Adama",
-        subcity: "Robe",
-        zone: "Zone 09",
-        woreda: "Woreda 08",
-        houseNo: "14B",
-        status: "Active",
-        dateJoined: "2024-09-18",
-      },
-      {
-        id: 10,
-        fullName: "Haile G",
-        email: "haile@example.com",
-        phone: "777-777-7777",
-        city: "Jimma",
-        subcity: "Seto Semero",
-        zone: "Zone 10",
-        woreda: "Woreda 12",
-        houseNo: "7",
-        status: "Active",
-        dateJoined: "2024-10-05",
-      },
-    ];
-    setCustomers(dummyCustomers);
+    const fetchCustomers = async () => {
+      try {
+        const response = await fetch(
+          "http://localhost:8000/api/admin/customers"
+        );
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        const result = await response.json();
+        // Transform API fields to local shape
+        const apiCustomers = result.data.map((c) => ({
+          id: c.id,
+          fullName: c.fullName,
+          email: c.email,
+          phone: c.phone,
+          city: c.city,
+          subcity: c.subCity || "",
+          zone: c.zone || "",
+          woreda: c.woreda || "",
+          houseNo: c.houseNumber || "",
+          dateJoined: c.createdAt.split("T")[0],
+        }));
+        setCustomers(apiCustomers);
+      } catch (err) {
+        console.error("Failed to fetch customers:", err);
+      }
+    };
 
-    // TODO: fetch("/api/admin/customers").then(res => res.json()).then(data => setCustomers(data));
+    fetchCustomers();
   }, []);
 
   // ---- Derived: Filtered & Searched Customers ----
   const filteredCustomers = useMemo(() => {
     return customers.filter((c) => {
       const matchesSearch =
-        c.id.toString().includes(searchTerm.toLowerCase()) ||
+        c.id.toString().toLowerCase().includes(searchTerm.toLowerCase()) ||
         c.fullName.toLowerCase().includes(searchTerm.toLowerCase()) ||
         c.email.toLowerCase().includes(searchTerm.toLowerCase());
-      const matchesStatus = filterStatus === "All" || c.status === filterStatus;
-      return matchesSearch && matchesStatus;
+      return matchesSearch;
     });
-  }, [customers, searchTerm, filterStatus]);
+  }, [customers, searchTerm]);
 
   // ---- Derived: Paginated Customers ----
   const totalPages = Math.ceil(filteredCustomers.length / itemsPerPage);
@@ -206,6 +103,7 @@ const Customers = () => {
   };
   const openEditForm = (customer) => {
     setEditingCustomer(customer);
+    // Pre-fill form fields with existing values
     setValue("fullName", customer.fullName);
     setValue("email", customer.email);
     setValue("phone", customer.phone);
@@ -218,8 +116,9 @@ const Customers = () => {
   };
 
   // ---- Handler: Form Submit (Add or Edit) ----
-  const onSubmit = (data) => {
+  const onSubmit = async (data) => {
     if (editingCustomer) {
+      // Editing existing customer: local state update (PUT can be implemented later)
       const updated = {
         ...editingCustomer,
         fullName: data.fullName.trim(),
@@ -234,25 +133,72 @@ const Customers = () => {
       setCustomers((prev) =>
         prev.map((c) => (c.id === updated.id ? updated : c))
       );
-      // TODO: fetch(`/api/admin/customers/${updated.id}`, { method: "PUT", body: JSON.stringify(updated) })
+      // TODO: Send PUT request to backend
+      /*
+      try {
+        await fetch(`http://localhost:8000/api/admin/customers/${updated.id}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            fullName: updated.fullName,
+            email: updated.email,
+            phone: updated.phone,
+            city: updated.city,
+            subCity: updated.subcity,
+            zone: updated.zone,
+            woreda: updated.woreda,
+            houseNumber: updated.houseNo
+          }),
+        });
+      } catch (err) {
+        console.error("Failed to update customer:", err);
+      }
+      */
     } else {
-      const nextId =
-        customers.length > 0 ? Math.max(...customers.map((c) => c.id)) + 1 : 1;
-      const newCustomer = {
-        id: nextId,
+      // Creating new customer via POST
+      const createPayload = {
         fullName: data.fullName.trim(),
         email: data.email.trim(),
         phone: data.phone.trim(),
         city: data.city.trim(),
-        subcity: data.subcity.trim(),
+        subCity: data.subcity.trim(),
         zone: data.zone.trim(),
         woreda: data.woreda.trim(),
-        houseNo: data.houseNo.trim(),
-        status: "Active",
-        dateJoined: new Date().toISOString().split("T")[0],
+        houseNumber: data.houseNo.trim(),
       };
-      setCustomers((prev) => [...prev, newCustomer]);
-      // TODO: fetch("/api/admin/customers", { method: "POST", body: JSON.stringify(newCustomer) })
+
+      try {
+        const response = await fetch(
+          "http://localhost:8000/api/admin/customers",
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(createPayload),
+          }
+        );
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        const result = await response.json();
+        // Use returned data for state (ensures correct id from backend)
+        const newCust = result.data;
+        const formatted = {
+          id: newCust.id,
+          fullName: newCust.fullName,
+          email: newCust.email,
+          phone: newCust.phone,
+          city: newCust.city,
+          subcity: newCust.subCity || "",
+          zone: newCust.zone || "",
+          woreda: newCust.woreda || "",
+          houseNo: newCust.houseNumber || "",
+          dateJoined: newCust.createdAt.split("T")[0],
+        };
+        setCustomers((prev) => [...prev, formatted]);
+      } catch (err) {
+        console.error("Failed to create customer:", err);
+        // Optionally: show an error message to the user
+      }
     }
     setIsFormOpen(false);
   };
@@ -263,27 +209,24 @@ const Customers = () => {
     setIsViewOpen(true);
   };
 
-  // ---- Handler: Deactivate / Activate Customer ----
-  const toggleStatus = (customer) => {
-    const updated = {
-      ...customer,
-      status: customer.status === "Active" ? "Inactive" : "Active",
-    };
-    setCustomers((prev) =>
-      prev.map((c) => (c.id === updated.id ? updated : c))
-    );
-    // TODO: fetch(`/api/admin/customers/${customer.id}/status`, { method: "PATCH", body: JSON.stringify({ status: updated.status }) })
-  };
-
   // ---- Handler: Delete Customer ----
-  const deleteCustomer = (customer) => {
+  const deleteCustomer = async (customer) => {
     if (
       window.confirm(
         `Are you sure you want to permanently delete ${customer.fullName}?`
       )
     ) {
       setCustomers((prev) => prev.filter((c) => c.id !== customer.id));
-      // TODO: fetch(`/api/admin/customers/${customer.id}`, { method: "DELETE" })
+      // TODO: Send DELETE request to backend
+      /*
+      try {
+        await fetch(`http://localhost:8000/api/admin/customers/${customer.id}`, {
+          method: "DELETE",
+        });
+      } catch (err) {
+        console.error("Failed to delete customer:", err);
+      }
+      */
     }
   };
 
@@ -292,9 +235,9 @@ const Customers = () => {
   const closeView = () => setIsViewOpen(false);
 
   return (
-    <div className="flex flex-col min-h-screen overflow-x-hidden">
+    <div className="flex flex-col min-h-screen overflow-hidden">
       <div className="flex-1 p-6 bg-gray-50">
-        {/* ===== Search & Filter Bar ===== */}
+        {/* ===== Search Bar ===== */}
         <div className="flex flex-col md:flex-row items-start md:items-center justify-between mb-6 space-y-4 md:space-y-0">
           <input
             type="text"
@@ -306,19 +249,6 @@ const Customers = () => {
             }}
             className="w-full md:w-1/3 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
           />
-
-          <select
-            value={filterStatus}
-            onChange={(e) => {
-              setFilterStatus(e.target.value);
-              setCurrentPage(1);
-            }}
-            className="w-full md:w-1/5 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-          >
-            <option value="All">All Statuses</option>
-            <option value="Active">Active</option>
-            <option value="Inactive">Inactive</option>
-          </select>
 
           <button
             onClick={openAddForm}
@@ -361,9 +291,6 @@ const Customers = () => {
                   House No
                 </th>
                 <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">
-                  Status
-                </th>
-                <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">
                   Actions
                 </th>
               </tr>
@@ -401,9 +328,6 @@ const Customers = () => {
                   <td className="px-4 py-3 text-sm text-gray-700">
                     {customer.houseNo}
                   </td>
-                  <td className="px-4 py-3 text-sm text-gray-700">
-                    {customer.status}
-                  </td>
                   <td className="px-4 py-3 text-sm text-gray-700 flex space-x-2">
                     <button
                       onClick={() => openViewModal(customer)}
@@ -420,15 +344,6 @@ const Customers = () => {
                       <Edit2 className="w-4 h-4 text-green-600" />
                     </button>
                     <button
-                      onClick={() => toggleStatus(customer)}
-                      title={
-                        customer.status === "Active" ? "Deactivate" : "Activate"
-                      }
-                      className="p-1 rounded hover:bg-gray-200"
-                    >
-                      <Trash2 className="w-4 h-4 text-yellow-600" />
-                    </button>
-                    <button
                       onClick={() => deleteCustomer(customer)}
                       title="Delete"
                       className="p-1 rounded hover:bg-gray-200"
@@ -441,7 +356,7 @@ const Customers = () => {
               {paginatedCustomers.length === 0 && (
                 <tr>
                   <td
-                    colSpan={11}
+                    colSpan={10}
                     className="px-4 py-6 text-center text-gray-500 italic"
                   >
                     No customers found.
@@ -500,10 +415,7 @@ const Customers = () => {
               </p>
               <p>
                 <strong>Address:</strong>{" "}
-                {`\${viewingCustomer.houseNo}, \${viewingCustomer.woreda}, \${viewingCustomer.zone}, \${viewingCustomer.subcity}, \${viewingCustomer.city}`}
-              </p>
-              <p>
-                <strong>Status:</strong> {viewingCustomer.status}
+                {`${viewingCustomer.houseNo}, ${viewingCustomer.woreda}, ${viewingCustomer.zone}, ${viewingCustomer.subcity}, ${viewingCustomer.city}`}
               </p>
               <p>
                 <strong>Date Joined:</strong> {viewingCustomer.dateJoined}
@@ -566,7 +478,7 @@ const Customers = () => {
                   {...register("email", {
                     required: "Email is required",
                     pattern: {
-                      value: /^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/,
+                      value: /^[^\s@]+@[^\s@]+\.[^\s@]+$/,
                       message: "Invalid email address",
                     },
                   })}
@@ -588,7 +500,7 @@ const Customers = () => {
                   {...register("phone", {
                     required: "Phone is required",
                     pattern: {
-                      value: /^[0-9\\-\\s]+$/,
+                      value: /^[0-9\-\s]+$/,
                       message: "Invalid phone format",
                     },
                   })}
@@ -716,4 +628,3 @@ const Customers = () => {
 };
 
 export default Customers;
-// Note: This component is designed to be used within an AdminLayout that provides the necessary context and styling.
