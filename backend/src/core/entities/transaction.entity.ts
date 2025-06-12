@@ -11,7 +11,7 @@ export class Transaction {
   amount: number;
 
   @Column()
-  type: string; // e.g., 'deposit', 'withdrawal', 'transfer_out', 'transfer_in'
+  type: string; 
 
   @Column()
   direction: string
@@ -23,7 +23,7 @@ export class Transaction {
   date: Date;
 
   @Column({ nullable: true })
-  notes: string; // Optional notes for the transaction
+  notes: string;
 
   @ManyToOne(() => Account, (account) => account.transactions, { onDelete: 'CASCADE' })
   account: Account;

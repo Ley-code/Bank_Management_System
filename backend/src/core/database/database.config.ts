@@ -5,6 +5,10 @@ import { TypeOrmModuleOptions } from '@nestjs/typeorm';
 import { Customer } from '../entities/customer.entity';
 import { Account } from '../entities/account.entity';
 import { Branch } from '../entities/branch.entity';
+import { Transaction } from '../entities/transaction.entity';
+import { Loan } from '../entities/loan.entity';
+import { Payment } from '../entities/payment.entity';
+import { Employee } from '../entities/employee.entity';
 export default registerAs('database', (): TypeOrmModuleOptions => {
   return {
     type: 'postgres',
@@ -16,7 +20,12 @@ export default registerAs('database', (): TypeOrmModuleOptions => {
     entities: [
       Customer,
       Account,
-      Branch
+      Branch,
+      Transaction,
+      Loan,
+      Payment,
+      Employee,
+
     ],
     synchronize: true,
     autoLoadEntities: true,

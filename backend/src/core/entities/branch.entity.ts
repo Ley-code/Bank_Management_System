@@ -2,6 +2,7 @@ import { Entity, PrimaryColumn, Column, OneToMany} from 'typeorm';
 import { Account } from './account.entity';
 import { Transaction } from './transaction.entity';
 import { Employee } from './employee.entity';
+import { Loan } from './loan.entity';
 
 @Entity()
 export class Branch {
@@ -22,6 +23,9 @@ export class Branch {
 
     @OneToMany(() => Employee, (employee) => employee.branch)
     employees: Employee[]; 
+
+    @OneToMany(() => Loan, loan => loan.branch)
+    loans: Loan[]; // Reference to loans issued at this branch
 
     @Column({ type: 'timestamp', default: () => 'CURRENT_TIMESTAMP' })
     createdAt: Date;
