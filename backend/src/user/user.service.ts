@@ -20,7 +20,6 @@ export class UserService {
     async getUserDetails(customerId: string) {
         const customer = await this.customerRepository.findOne({
             where: { id: customerId },
-            relations: ['accounts'],
         });
 
         if (!customer) {

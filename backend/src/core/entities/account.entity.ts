@@ -3,6 +3,7 @@ import { Customer } from './customer.entity';
 import { Branch } from './branch.entity';
 import { Transaction } from './transaction.entity';
 import { OneToMany } from 'typeorm';
+import { Loan } from './loan.entity';
 export enum AccountType {
     SAVINGS = 'SAVINGS',
     CHECKING = 'CHECKING',
@@ -42,7 +43,7 @@ export class Account {
         onDelete: 'CASCADE'
     })
     customer: Customer;
-
+    
     @ManyToOne(() => Branch, branch => branch.accounts, { 
         eager: true, 
         onDelete: 'SET NULL'
@@ -51,6 +52,9 @@ export class Account {
 
     @OneToMany(() => Transaction, transaction => transaction.account, { cascade: true })
     transactions: Transaction[];
+
+    @OneToMany(()=> Loan, loan => loan.account, {cascade: true} )
+    loans: Loan[];
 
     @Column({ type: 'timestamp', default: () => 'CURRENT_TIMESTAMP' })
     createdAt: Date;
