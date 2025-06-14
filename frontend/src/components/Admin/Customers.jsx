@@ -1,5 +1,6 @@
 // src/components/Admin/Customers.jsx
 
+import axios from "axios";
 import { Edit2, Eye, Trash2, X } from "lucide-react";
 import React, { useEffect, useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
@@ -14,7 +15,7 @@ import { useForm } from "react-hook-form";
  *
  * Advice:
  *   - Ensure your backend responds with the fields: id, fullName, email, phone, city, subCity, zone, woreda, houseNumber, createdAt
- *   - Consider centralizing API calls into a separate “api.js” utility file once you have multiple endpoints.
+ *   - Consider centralizing API calls into a separate "api.js" utility file once you have multiple endpoints.
  */
 
 const Customers = () => {
@@ -45,15 +46,11 @@ const Customers = () => {
   useEffect(() => {
     const fetchCustomers = async () => {
       try {
-        const response = await fetch(
+        const response = await axios.get(
           "http://localhost:8000/api/admin/customers"
         );
-        if (!response.ok) {
-          throw new Error(`HTTP error! status: ${response.status}`);
-        }
-        const result = await response.json();
         // Transform API fields to local shape
-        const apiCustomers = result.data.map((c) => ({
+        const apiCustomers = response.data.data.map((c) => ({
           id: c.id,
           fullName: c.fullName,
           email: c.email,
@@ -133,27 +130,6 @@ const Customers = () => {
       setCustomers((prev) =>
         prev.map((c) => (c.id === updated.id ? updated : c))
       );
-      // TODO: Send PUT request to backend
-      /*
-      try {
-        await fetch(`http://localhost:8000/api/admin/customers/${updated.id}`, {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            fullName: updated.fullName,
-            email: updated.email,
-            phone: updated.phone,
-            city: updated.city,
-            subCity: updated.subcity,
-            zone: updated.zone,
-            woreda: updated.woreda,
-            houseNumber: updated.houseNo
-          }),
-        });
-      } catch (err) {
-        console.error("Failed to update customer:", err);
-      }
-      */
     } else {
       // Creating new customer via POST
       const createPayload = {
@@ -168,20 +144,15 @@ const Customers = () => {
       };
 
       try {
-        const response = await fetch(
+        const response = await axios.post(
           "http://localhost:8000/api/admin/customers",
+          createPayload,
           {
-            method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(createPayload),
           }
         );
-        if (!response.ok) {
-          throw new Error(`HTTP error! status: ${response.status}`);
-        }
-        const result = await response.json();
         // Use returned data for state (ensures correct id from backend)
-        const newCust = result.data;
+        const newCust = response.data.data;
         const formatted = {
           id: newCust.id,
           fullName: newCust.fullName,
@@ -197,7 +168,6 @@ const Customers = () => {
         setCustomers((prev) => [...prev, formatted]);
       } catch (err) {
         console.error("Failed to create customer:", err);
-        // Optionally: show an error message to the user
       }
     }
     setIsFormOpen(false);
@@ -252,7 +222,7 @@ const Customers = () => {
 
           <button
             onClick={openAddForm}
-            className="bg-blue-500 text-white px-4 py-2 rounded-md hover:bg-blue-600"
+            className="bg-blue-500 text-white px-4 py-2 rounded-md hover:bg-blue-600 cursor-pointer"
           >
             Add New Customer
           </button>
@@ -332,21 +302,21 @@ const Customers = () => {
                     <button
                       onClick={() => openViewModal(customer)}
                       title="View Profile"
-                      className="p-1 rounded hover:bg-gray-200"
+                      className="p-1 rounded hover:bg-gray-200 cursor-pointer"
                     >
                       <Eye className="w-4 h-4 text-blue-600" />
                     </button>
                     <button
                       onClick={() => openEditForm(customer)}
                       title="Edit"
-                      className="p-1 rounded hover:bg-gray-200"
+                      className="p-1 rounded hover:bg-gray-200 cursor-pointer"
                     >
                       <Edit2 className="w-4 h-4 text-green-600" />
                     </button>
                     <button
                       onClick={() => deleteCustomer(customer)}
                       title="Delete"
-                      className="p-1 rounded hover:bg-gray-200"
+                      className="p-1 rounded hover:bg-gray-200 cursor-pointer"
                     >
                       <Trash2 className="w-4 h-4 text-red-600" />
                     </button>
@@ -390,7 +360,7 @@ const Customers = () => {
       {/* ===== View Profile Modal ===== */}
       {isViewOpen && viewingCustomer && (
         <div
-          className="fixed inset-0 backdrop-blur-md flex items-center justify-center z-50"
+          className="fixed inset-0 backdrop-blur-[2px] bg-transparent flex items-center justify-center z-50"
           onClick={closeView}
         >
           <div
@@ -423,7 +393,7 @@ const Customers = () => {
             </div>
             <button
               onClick={closeView}
-              className="absolute top-4 right-4 text-gray-500 hover:text-gray-700"
+              className="absolute top-4 right-4 text-gray-500 hover:text-gray-700 cursor-pointer"
             >
               <X className="w-6 h-6" />
             </button>
@@ -434,7 +404,7 @@ const Customers = () => {
       {/* ===== Add / Edit Customer Modal ===== */}
       {isFormOpen && (
         <div
-          className="fixed inset-0 backdrop-blur-md flex items-center justify-center z-50"
+          className="fixed inset-0 backdrop-blur-[2px] bg-transparent flex items-center justify-center z-50"
           onClick={closeForm}
         >
           <div
@@ -606,7 +576,7 @@ const Customers = () => {
               <div className="md:col-span-2 flex justify-end mt-4">
                 <button
                   type="submit"
-                  className="bg-blue-500 text-white px-6 py-2 rounded-md hover:bg-blue-600"
+                  className="bg-blue-500 text-white px-6 py-2 rounded-md hover:bg-blue-600 cursor-pointer"
                 >
                   {editingCustomer ? "Save Changes" : "Add Customer"}
                 </button>
@@ -616,7 +586,7 @@ const Customers = () => {
             {/* Close (×) Button */}
             <button
               onClick={closeForm}
-              className="absolute top-4 right-4 text-gray-500 hover:text-gray-700"
+              className="absolute top-4 right-4 text-gray-500 hover:text-gray-700 cursor-pointer"
             >
               <X className="w-6 h-6" />
             </button>

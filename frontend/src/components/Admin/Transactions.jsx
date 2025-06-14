@@ -1,5 +1,6 @@
 // src/components/Admin/Transactions.jsx
 
+import axios from "axios";
 import { X } from "lucide-react";
 import React, { useEffect, useMemo, useState } from "react";
 
@@ -32,149 +33,6 @@ import React, { useEffect, useMemo, useState } from "react";
  */
 
 const Transactions = () => {
-  // ---- Dummy data: currency lookup ----
-  const dummyCurrencies = [
-    { id: 1, code: "ETB", name: "Ethiopian Birr" },
-    { id: 2, code: "USD", name: "US Dollar" },
-    { id: 3, code: "EUR", name: "Euro" },
-  ];
-
-  // ---- Dummy data: transactions ----
-  const dummyTransactions = [
-    {
-      id: 1001,
-      date: "2024-05-01",
-      amount: 2500,
-      currency_id: 1,
-      type: "Deposit",
-      accountNumber: "ACC1001",
-      customerName: "John Doe",
-      branchName: "Main Branch",
-      description: "ATM Deposit",
-    },
-    {
-      id: 1002,
-      date: "2024-05-03",
-      amount: 500,
-      currency_id: 2,
-      type: "Withdrawal",
-      accountNumber: "ACC1002",
-      customerName: "Jane Smith",
-      branchName: "Bole Branch",
-      description: "Online Withdrawal",
-    },
-    {
-      id: 1003,
-      date: "2024-05-05",
-      amount: 1200,
-      currency_id: 1,
-      type: "Deposit",
-      accountNumber: "ACC1003",
-      customerName: "Alice Johnson",
-      branchName: "Gondar Branch",
-      description: "Branch Deposit",
-    },
-    {
-      id: 1004,
-      date: "2024-05-07",
-      amount: 750,
-      currency_id: 3,
-      type: "Withdrawal",
-      accountNumber: "ACC1004",
-      customerName: "Bob Brown",
-      branchName: "Mekelle Branch",
-      description: "Cheque Withdrawal",
-    },
-    {
-      id: 1005,
-      date: "2024-05-10",
-      amount: 300,
-      currency_id: 1,
-      type: "Deposit",
-      accountNumber: "ACC1005",
-      customerName: "Emma Davis",
-      branchName: "Gondar Branch",
-      description: "Mobile Deposit",
-    },
-    {
-      id: 1006,
-      date: "2024-05-12",
-      amount: 900,
-      currency_id: 2,
-      type: "Withdrawal",
-      accountNumber: "ACC1006",
-      customerName: "Michael Lee",
-      branchName: "Awash Bank Branch",
-      description: "ATM Withdrawal",
-    },
-    {
-      id: 1007,
-      date: "2024-05-15",
-      amount: 450,
-      currency_id: 1,
-      type: "Deposit",
-      accountNumber: "ACC1007",
-      customerName: "Sarah Wilson",
-      branchName: "Harar Branch",
-      description: "Online Deposit",
-    },
-    {
-      id: 1008,
-      date: "2024-05-18",
-      amount: 1100,
-      currency_id: 3,
-      type: "Withdrawal",
-      accountNumber: "ACC1008",
-      customerName: "David Taylor",
-      branchName: "Hawassa Branch",
-      description: "Branch Withdrawal",
-    },
-    {
-      id: 1009,
-      date: "2024-05-20",
-      amount: 600,
-      currency_id: 1,
-      type: "Deposit",
-      accountNumber: "ACC1009",
-      customerName: "Lisa Anderson",
-      branchName: "Adama Branch",
-      description: "Mobile Deposit",
-    },
-    {
-      id: 1010,
-      date: "2024-05-22",
-      amount: 800,
-      currency_id: 2,
-      type: "Withdrawal",
-      accountNumber: "ACC1010",
-      customerName: "Haile G",
-      branchName: "Jimma Branch",
-      description: "Online Withdrawal",
-    },
-    {
-      id: 1011,
-      date: "2024-05-25",
-      amount: 1300,
-      currency_id: 1,
-      type: "Deposit",
-      accountNumber: "ACC1011",
-      customerName: "Samuel Bekele",
-      branchName: "Main Branch",
-      description: "ATM Deposit",
-    },
-    {
-      id: 1012,
-      date: "2024-05-28",
-      amount: 400,
-      currency_id: 3,
-      type: "Withdrawal",
-      accountNumber: "ACC1012",
-      customerName: "Martha Adem",
-      branchName: "Bahir Dar Branch",
-      description: "Cheque Withdrawal",
-    },
-  ];
-
   // ---- State: transactions & UI controls ----
   const [transactions, setTransactions] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -200,19 +58,14 @@ const Transactions = () => {
     const fetchTransactions = async () => {
       setLoading(true);
       try {
-        // TODO: Replace with API call to fetch paginated/filtered transactions
-        // const res = await fetch(
-        //   `/api/admin/transactions?page=${currentPage}&pageSize=${itemsPerPage}` +
-        //   `&search=${encodeURIComponent(searchTerm)}` +
-        //   `&type=${filterType}` +
-        //   `&currency=${filterCurrency}` +
-        //   `&start=${startDate}&end=${endDate}`
-        // );
-        // const data = await res.json();
-        // setTransactions(data);
-
-        // Using dummy data for now:
-        setTransactions(dummyTransactions);
+        const response = await axios.get(
+          "http://localhost:8000/api/admin/transactions"
+        );
+        if (response.data.status === "success") {
+          setTransactions(response.data.data || []);
+        } else {
+          setError("Failed to fetch transactions");
+        }
       } catch (err) {
         setError("Failed to fetch transactions");
       } finally {
@@ -339,11 +192,11 @@ const Transactions = () => {
           className="w-full md:w-1/5 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
         >
           <option value="All">All Currencies</option>
-          {dummyCurrencies.map((cur) => (
+          {/* {dummyCurrencies.map((cur) => (
             <option key={cur.id} value={cur.id}>
               {cur.code}
             </option>
-          ))}
+          ))} */}
         </select>
 
         {/* Filter by Start Date */}
@@ -413,9 +266,9 @@ const Transactions = () => {
             {paginatedTransactions.length > 0 ? (
               paginatedTransactions.map((tx) => {
                 // Resolve currency code from currency_id
-                const currency = dummyCurrencies.find(
-                  (c) => c.id === tx.currency_id
-                );
+                // const currency = dummyCurrencies.find(
+                //   (c) => c.id === tx.currency_id
+                // );
                 return (
                   <tr
                     key={tx.id}
@@ -429,7 +282,7 @@ const Transactions = () => {
                       ${tx.amount.toLocaleString()}
                     </td>
                     <td className="px-4 py-3 text-sm text-gray-700">
-                      {currency ? currency.code : "—"}
+                      {/* {currency ? currency.code : "—"} */}
                     </td>
                     <td className="px-4 py-3 text-sm text-gray-700">
                       {tx.type}
@@ -509,9 +362,9 @@ const Transactions = () => {
               <p>
                 <strong>Amount:</strong> $
                 {selectedTransaction.amount.toLocaleString()}{" "}
-                {dummyCurrencies.find(
+                {/* {dummyCurrencies.find(
                   (c) => c.id === selectedTransaction.currency_id
-                )?.code || ""}
+                )?.code || ""} */}
               </p>
               <p>
                 <strong>Type:</strong> {selectedTransaction.type}

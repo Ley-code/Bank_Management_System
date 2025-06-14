@@ -1,5 +1,6 @@
-// src/components/Admin/Branch.jsx
+// src/components/Admin/Branches.jsx
 
+import axios from "axios";
 import { Edit2, Trash2, X } from "lucide-react";
 import React, { useEffect, useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
@@ -28,21 +29,25 @@ import { useForm } from "react-hook-form";
  *   handleDelete: DELETE /api/admin/branches/:id
  */
 
-const Branches = () => {
-  // ---- State: Branch List (dummy data) ----
-  const [branches, setBranches] = useState([]);
+// Axios instance for branch API
+const api = axios.create({
+  baseURL: "http://localhost:8000/api",
+  headers: { "Content-Type": "application/json" },
+});
 
-  // ---- State: Search, Filter, Pagination ----
+const Branches = () => {
+  // State: Branch List
+  const [branches, setBranches] = useState([]);
+  // State: Search, Filter, Pagination
   const [searchTerm, setSearchTerm] = useState("");
   const [filterCity, setFilterCity] = useState("All");
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 5;
-
-  // ---- State: Modal Controls for Add/Edit ----
+  // State: Modal Controls for Add/Edit
   const [isFormOpen, setIsFormOpen] = useState(false);
-  const [editingBranch, setEditingBranch] = useState(null); // null = adding; object = editing
+  const [editingBranch, setEditingBranch] = useState(null);
 
-  // ---- React Hook Form Setup ----
+  // React Hook Form Setup
   const {
     register,
     handleSubmit,
@@ -51,23 +56,12 @@ const Branches = () => {
     formState: { errors },
   } = useForm();
 
-  // ---- Load Branch Data from API on Mount ----
+  // Load Branch Data from API on Mount
   useEffect(() => {
-    // Fetch branches from backend API
     const fetchBranches = async () => {
       try {
-        const response = await fetch("http://localhost:8000/api/admin/branch", {
-          method: "GET",
-          headers: { "Content-Type": "application/json" },
-        });
-        if (!response.ok) throw new Error("Failed to fetch branches");
-        const data = await response.json();
-        // Expecting data.data to be an array of branches
-        if (data && data.data) {
-          setBranches(data.data);
-        } else {
-          setBranches([]);
-        }
+        const response = await api.get("/admin/branch");
+        setBranches(response.data?.data || []);
       } catch (error) {
         console.error("Error fetching branches:", error);
         setBranches([]);
@@ -76,38 +70,35 @@ const Branches = () => {
     fetchBranches();
   }, []);
 
-  // ---- Derived: Filtered & Searched Branches ----
+  // Derived: Filtered & Searched Branches
   const filteredBranches = useMemo(() => {
     return branches.filter((b) => {
       const matchesSearch =
-        b.branchName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        b.city.toLowerCase().includes(searchTerm.toLowerCase());
+        b.branchName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        b.city?.toLowerCase().includes(searchTerm.toLowerCase());
       const matchesCity = filterCity === "All" || b.city === filterCity;
       return matchesSearch && matchesCity;
     });
   }, [branches, searchTerm, filterCity]);
 
-  // ---- Derived: Paginated Branches ----
+  // Derived: Paginated Branches
   const totalPages = Math.ceil(filteredBranches.length / itemsPerPage);
   const paginatedBranches = useMemo(() => {
     const start = (currentPage - 1) * itemsPerPage;
     return filteredBranches.slice(start, start + itemsPerPage);
   }, [filteredBranches, currentPage]);
 
-  // ---- Handlers: Pagination ----
+  // Handlers: Pagination
   const goToPage = (pageNum) => setCurrentPage(pageNum);
 
-  // ---- Handlers: Open Add Modal ----
+  // Handlers: Open Add/Edit Modal
   const openAddForm = () => {
     setEditingBranch(null);
     reset();
     setIsFormOpen(true);
   };
-
-  // ---- Handlers: Open Edit Modal ----
   const openEditForm = (branch) => {
     setEditingBranch(branch);
-    // Pre-fill form fields
     setValue("branchName", branch.branchName);
     setValue("city", branch.city);
     setValue("assets", branch.assets);
@@ -117,50 +108,55 @@ const Branches = () => {
     setIsFormOpen(true);
   };
 
-  // ---- Handler: Form Submit (Add/Edit) ----
-  const onSubmit = (data) => {
-    if (editingBranch) {
-      // Edit existing branch
-      const updated = {
-        ...editingBranch,
-        branchName: data.branchName.trim(),
-        city: data.city.trim(),
-        assets: parseFloat(data.assets),
-        totalDeposits: parseFloat(data.totalDeposits),
-        totalWithdrawals: parseFloat(data.totalWithdrawals),
-        totalLoans: parseFloat(data.totalLoans),
-        lastUpdated: new Date().toISOString().split("T")[0],
-      };
-      setBranches((prev) =>
-        prev.map((b) => (b.id === updated.id ? updated : b))
+  // Handler: Form Submit (Add/Edit)
+  const onSubmit = async (data) => {
+    try {
+      if (editingBranch) {
+        // TODO: Implement PUT for editing branch if needed
+        const updated = {
+          ...editingBranch,
+          branchName: data.branchName.trim(),
+          city: data.city.trim(),
+          assets: parseFloat(data.assets),
+          totalDeposits: parseFloat(data.totalDeposits),
+          totalWithdrawals: parseFloat(data.totalWithdrawals),
+          totalLoans: parseFloat(data.totalLoans),
+          lastUpdated: new Date().toISOString().split("T")[0],
+        };
+        setBranches((prev) =>
+          prev.map((b) => (b.id === updated.id ? updated : b))
+        );
+        setEditingBranch(null);
+      } else {
+        // Add new branch (POST)
+        const newBranch = {
+          branchName: data.branchName.trim(),
+          city: data.city.trim(),
+          assets: parseFloat(data.assets),
+          totalDeposits: parseFloat(data.totalDeposits),
+          totalWithdrawals: parseFloat(data.totalWithdrawals),
+          totalLoans: parseFloat(data.totalLoans),
+          lastUpdated: new Date().toISOString().split("T")[0],
+        };
+        const response = await api.post("/admin/branch", newBranch);
+        if (response.data) {
+          // Refresh branches list
+          const branchesResponse = await api.get("/admin/branch");
+          setBranches(branchesResponse.data?.data || []);
+        }
+      }
+      reset();
+      setIsFormOpen(false);
+    } catch (error) {
+      console.error("Error saving branch:", error);
+      alert(
+        error.response?.data?.message ||
+          "Failed to save branch. Please try again."
       );
-      setEditingBranch(null);
-
-      // TODO: PUT `/api/admin/branches/${updated.id}` with updated data
-    } else {
-      // Add new branch
-      const nextId =
-        branches.length > 0 ? Math.max(...branches.map((b) => b.id)) + 1 : 1;
-      const newBranch = {
-        id: nextId,
-        branchName: data.branchName.trim(),
-        city: data.city.trim(),
-        assets: parseFloat(data.assets),
-        totalDeposits: parseFloat(data.totalDeposits),
-        totalWithdrawals: parseFloat(data.totalWithdrawals),
-        totalLoans: parseFloat(data.totalLoans),
-        lastUpdated: new Date().toISOString().split("T")[0],
-      };
-      setBranches((prev) => [...prev, newBranch]);
-
-      // TODO: POST `/api/admin/branches` with newBranch
     }
-
-    reset();
-    setIsFormOpen(false);
   };
 
-  // ---- Handler: Delete Branch ----
+  // Handler: Delete Branch (local only, no API)
   const deleteBranch = (branch) => {
     if (
       window.confirm(
@@ -168,12 +164,11 @@ const Branches = () => {
       )
     ) {
       setBranches((prev) => prev.filter((b) => b.id !== branch.id));
-
-      // TODO: DELETE `/api/admin/branches/${branch.id}`
+      // TODO: Implement DELETE API if needed
     }
   };
 
-  // ---- Unique Cities for City Filter Dropdown ----
+  // Unique Cities for City Filter Dropdown
   const uniqueCities = useMemo(() => {
     const cities = branches.map((b) => b.city);
     return ["All", ...Array.from(new Set(cities))];
@@ -187,15 +182,13 @@ const Branches = () => {
           <h2 className="text-3xl font-bold text-gray-900">Branches</h2>
           <button
             onClick={openAddForm}
-            className="bg-blue-500 text-white px-4 py-2 rounded-md hover:bg-blue-600"
+            className="bg-blue-500 text-white px-4 py-2 rounded-md hover:bg-blue-600 cursor-pointer"
           >
             Add New Branch
           </button>
         </div>
-
         {/* ===== Search & Filter Controls ===== */}
         <div className="flex flex-col md:flex-row items-start md:items-center gap-4 mb-4">
-          {/* Search by Branch Name or City */}
           <input
             type="text"
             placeholder="Search by Branch Name or City"
@@ -206,8 +199,6 @@ const Branches = () => {
             }}
             className="w-full md:w-1/3 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
           />
-
-          {/* Filter by City */}
           <select
             value={filterCity}
             onChange={(e) => {
@@ -223,7 +214,6 @@ const Branches = () => {
             ))}
           </select>
         </div>
-
         {/* ===== Branches Table ===== */}
         <div className="overflow-x-hidden">
           <table className="w-full table-auto bg-white rounded-lg shadow-sm">
@@ -295,19 +285,17 @@ const Branches = () => {
                     {b.lastUpdated || "-"}
                   </td>
                   <td className="px-4 py-3 text-sm text-gray-700 flex space-x-2">
-                    {/* Edit Button */}
                     <button
                       onClick={() => openEditForm(b)}
                       title="Edit Branch"
-                      className="p-1 rounded hover:bg-gray-200"
+                      className="p-1 rounded hover:bg-gray-200 cursor-pointer"
                     >
                       <Edit2 className="w-5 h-5 text-indigo-600" />
                     </button>
-                    {/* Delete Button */}
                     <button
                       onClick={() => deleteBranch(b)}
                       title="Delete Branch"
-                      className="p-1 rounded hover:bg-gray-200"
+                      className="p-1 rounded hover:bg-gray-200 cursor-pointer"
                     >
                       <Trash2 className="w-5 h-5 text-red-600" />
                     </button>
@@ -327,7 +315,6 @@ const Branches = () => {
             </tbody>
           </table>
         </div>
-
         {/* ===== Pagination Numeric Buttons ===== */}
         <div className="flex justify-center items-center mt-4 space-x-2">
           {Array.from({ length: totalPages }, (_, i) => i + 1).map(
@@ -347,174 +334,168 @@ const Branches = () => {
           )}
         </div>
       </div>
-
       {/* ===== Add / Edit Branch Modal ===== */}
       {isFormOpen && (
         <div
-          className="fixed inset-0 backdrop-blur-md flex items-center justify-center z-50"
+          className="fixed inset-0 backdrop-blur-[2px] bg-transparent flex items-center justify-center z-50"
           onClick={() => {
             setIsFormOpen(false);
             setEditingBranch(null);
           }}
         >
           <div
-            className="bg-white p-6 rounded-xl shadow-xl max-w-md w-full relative"
+            className="bg-white p-6 rounded-xl shadow-xl max-w-2xl w-full relative"
             onClick={(e) => e.stopPropagation()}
           >
             <h2 className="text-2xl font-bold text-gray-900 mb-4">
               {editingBranch ? "Edit Branch" : "Add New Branch"}
             </h2>
-
-            {/* Form with React Hook Form */}
-            <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-              {/* Branch Name */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700">
-                  Branch Name
-                </label>
-                <input
-                  type="text"
-                  {...register("branchName", {
-                    required: "Branch Name is required",
-                  })}
-                  className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
-                  placeholder="e.g. Main Branch"
-                  defaultValue={editingBranch?.branchName || ""}
-                />
-                {errors.branchName && (
-                  <p className="text-sm text-red-600">
-                    {errors.branchName.message}
-                  </p>
-                )}
+            <form
+              onSubmit={handleSubmit(onSubmit)}
+              className="grid grid-cols-1 md:grid-cols-2 gap-6"
+            >
+              {/* Left Column */}
+              <div className="flex flex-col gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">
+                    Branch Name
+                  </label>
+                  <input
+                    type="text"
+                    {...register("branchName", {
+                      required: "Branch Name is required",
+                    })}
+                    className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                    placeholder="e.g. Main Branch"
+                    defaultValue={editingBranch?.branchName || ""}
+                  />
+                  {errors.branchName && (
+                    <p className="text-sm text-red-600">
+                      {errors.branchName.message}
+                    </p>
+                  )}
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">
+                    City
+                  </label>
+                  <input
+                    type="text"
+                    {...register("city", { required: "City is required" })}
+                    className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                    placeholder="e.g. Addis Ababa"
+                    defaultValue={editingBranch?.city || ""}
+                  />
+                  {errors.city && (
+                    <p className="text-sm text-red-600">
+                      {errors.city.message}
+                    </p>
+                  )}
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">
+                    Assets
+                  </label>
+                  <input
+                    type="number"
+                    {...register("assets", {
+                      required: "Assets value is required",
+                      min: { value: 0, message: "Assets cannot be negative" },
+                    })}
+                    className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                    placeholder="e.g. 5000000"
+                    defaultValue={editingBranch?.assets || ""}
+                    step="0.01"
+                  />
+                  {errors.assets && (
+                    <p className="text-sm text-red-600">
+                      {errors.assets.message}
+                    </p>
+                  )}
+                </div>
               </div>
-
-              {/* City */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700">
-                  City
-                </label>
-                <input
-                  type="text"
-                  {...register("city", { required: "City is required" })}
-                  className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
-                  placeholder="e.g. Addis Ababa"
-                  defaultValue={editingBranch?.city || ""}
-                />
-                {errors.city && (
-                  <p className="text-sm text-red-600">{errors.city.message}</p>
-                )}
+              {/* Right Column */}
+              <div className="flex flex-col gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">
+                    Total Deposits
+                  </label>
+                  <input
+                    type="number"
+                    {...register("totalDeposits", {
+                      required: "Total Deposits is required",
+                      min: { value: 0, message: "Cannot be negative" },
+                    })}
+                    className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                    placeholder="e.g. 2000000"
+                    defaultValue={editingBranch?.totalDeposits || ""}
+                    step="0.01"
+                  />
+                  {errors.totalDeposits && (
+                    <p className="text-sm text-red-600">
+                      {errors.totalDeposits.message}
+                    </p>
+                  )}
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">
+                    Total Withdrawals
+                  </label>
+                  <input
+                    type="number"
+                    {...register("totalWithdrawals", {
+                      required: "Total Withdrawals is required",
+                      min: { value: 0, message: "Cannot be negative" },
+                    })}
+                    className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                    placeholder="e.g. 1500000"
+                    defaultValue={editingBranch?.totalWithdrawals || ""}
+                    step="0.01"
+                  />
+                  {errors.totalWithdrawals && (
+                    <p className="text-sm text-red-600">
+                      {errors.totalWithdrawals.message}
+                    </p>
+                  )}
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">
+                    Total Loans
+                  </label>
+                  <input
+                    type="number"
+                    {...register("totalLoans", {
+                      required: "Total Loans is required",
+                      min: { value: 0, message: "Cannot be negative" },
+                    })}
+                    className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                    placeholder="e.g. 1000000"
+                    defaultValue={editingBranch?.totalLoans || ""}
+                    step="0.01"
+                  />
+                  {errors.totalLoans && (
+                    <p className="text-sm text-red-600">
+                      {errors.totalLoans.message}
+                    </p>
+                  )}
+                </div>
               </div>
-
-              {/* Assets */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700">
-                  Assets
-                </label>
-                <input
-                  type="number"
-                  {...register("assets", {
-                    required: "Assets value is required",
-                    min: { value: 0, message: "Assets cannot be negative" },
-                  })}
-                  className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
-                  placeholder="e.g. 5000000"
-                  defaultValue={editingBranch?.assets || ""}
-                  step="0.01"
-                />
-                {errors.assets && (
-                  <p className="text-sm text-red-600">
-                    {errors.assets.message}
-                  </p>
-                )}
-              </div>
-
-              {/* Total Deposits */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700">
-                  Total Deposits
-                </label>
-                <input
-                  type="number"
-                  {...register("totalDeposits", {
-                    required: "Total Deposits is required",
-                    min: { value: 0, message: "Cannot be negative" },
-                  })}
-                  className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
-                  placeholder="e.g. 2000000"
-                  defaultValue={editingBranch?.totalDeposits || ""}
-                  step="0.01"
-                />
-                {errors.totalDeposits && (
-                  <p className="text-sm text-red-600">
-                    {errors.totalDeposits.message}
-                  </p>
-                )}
-              </div>
-
-              {/* Total Withdrawals */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700">
-                  Total Withdrawals
-                </label>
-                <input
-                  type="number"
-                  {...register("totalWithdrawals", {
-                    required: "Total Withdrawals is required",
-                    min: { value: 0, message: "Cannot be negative" },
-                  })}
-                  className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
-                  placeholder="e.g. 1500000"
-                  defaultValue={editingBranch?.totalWithdrawals || ""}
-                  step="0.01"
-                />
-                {errors.totalWithdrawals && (
-                  <p className="text-sm text-red-600">
-                    {errors.totalWithdrawals.message}
-                  </p>
-                )}
-              </div>
-
-              {/* Total Loans */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700">
-                  Total Loans
-                </label>
-                <input
-                  type="number"
-                  {...register("totalLoans", {
-                    required: "Total Loans is required",
-                    min: { value: 0, message: "Cannot be negative" },
-                  })}
-                  className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
-                  placeholder="e.g. 1000000"
-                  defaultValue={editingBranch?.totalLoans || ""}
-                  step="0.01"
-                />
-                {errors.totalLoans && (
-                  <p className="text-sm text-red-600">
-                    {errors.totalLoans.message}
-                  </p>
-                )}
-              </div>
-
-              {/* Submit Button */}
-              <div className="flex justify-end pt-4">
+              {/* Submit Button (spans both columns) */}
+              <div className="md:col-span-2 flex justify-end pt-4">
                 <button
                   type="submit"
-                  className="bg-indigo-500 text-white px-5 py-2 rounded-md hover:bg-indigo-600"
+                  className="bg-indigo-500 text-white px-5 py-2 rounded-md hover:bg-indigo-600 cursor-pointer"
                 >
                   {editingBranch ? "Save Changes" : "Add Branch"}
                 </button>
               </div>
             </form>
-
-            {/* Close (×) Button */}
             <button
               onClick={() => {
                 setIsFormOpen(false);
                 setEditingBranch(null);
               }}
-              className="absolute top-4 right-4 text-gray-500 hover:text-gray-700"
+              className="absolute top-4 right-4 text-gray-500 hover:text-gray-700 cursor-pointer"
             >
               <X className="w-6 h-6" />
             </button>
@@ -526,24 +507,3 @@ const Branches = () => {
 };
 
 export default Branches;
-// Note: This component uses dummy data and React Hook Form for form handling.
-// Replace the dummy data and form submission logic with actual API calls when backend is ready.
-// Ensure to handle errors and loading states in production code.
-// Also consider adding proper validation and error handling for API calls.
-// For production, you may want to add loading states, error handling, and more robust validation.
-// This code is a complete React component for managing branches in an admin interface.
-// It includes features like searching, filtering, pagination, and modals for adding/editing branches.
-// The component is designed to be responsive and user-friendly, with clear actions for managing branches.
-// The code is structured to be easily maintainable and extendable for future features.
-// The component uses React Hook Form for form management, making it easy to handle form state and validation.
-// The component is styled using Tailwind CSS classes for a clean and modern look.
-// The component is ready to be integrated into a larger admin dashboard or application.
-// The code is modular and can be easily adapted for different use cases or data structures.
-// The component is designed to be reusable and can be imported into other parts of the application as needed.
-// The component is self-contained and does not rely on external state management libraries, making it easy to understand and use.
-// The component is optimized for performance with memoization and efficient rendering of lists.
-// The component is well-documented with comments explaining each section and functionality.
-// The component is tested with dummy data; ensure to replace it with real API calls when available.
-// The component is designed to be accessible, with proper labels and focus management for form elements.
-// The component is built with best practices in mind, ensuring maintainability and scalability.
-// The component is ready for production use with proper error handling and user feedback mechanisms.
