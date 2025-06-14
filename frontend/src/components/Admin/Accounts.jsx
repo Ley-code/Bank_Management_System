@@ -1,5 +1,6 @@
 // src/components/Admin/Accounts.jsx
 
+import axios from "axios";
 import React, { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 
@@ -76,6 +77,12 @@ const Accounts = () => {
   const [filteredCustomers, setFilteredCustomers] = useState([]);
   const [selectedCustomer, setSelectedCustomer] = useState(null);
   const [minDeposit, setMinDeposit] = useState(0);
+
+  // Create an axios instance for API calls
+  const api = axios.create({
+    baseURL: "http://localhost:8000/api",
+    headers: { "Content-Type": "application/json" },
+  });
 
   // Fetch all accounts for autocomplete when modal opens
   useEffect(() => {
@@ -460,6 +467,38 @@ const Accounts = () => {
     return matchesSearch && matchesType && matchesStatus;
   });
 
+  // Handler to delete an account
+  const handleDeleteAccount = async (account) => {
+    if (
+      !window.confirm(
+        `Are you sure you want to delete account #${account.accountNumber}?`
+      )
+    )
+      return;
+    try {
+      // Send DELETE request with account data in the body
+      await api.delete(`/admin/accounts/${account.accountNumber}`, {
+        data: {
+          customerID: account.customerID,
+          accountType: account.accountType,
+          currencyCode: account.currencyCode,
+          initialBalance: account.balance,
+          branchName: account.branch,
+        },
+      });
+      // Refresh accounts list after deletion
+      const response = await api.get("/admin/accounts");
+      setAccounts(response.data?.data || []);
+      alert("Account deleted successfully!");
+    } catch (error) {
+      console.error("Error deleting account:", error);
+      alert(
+        error.response?.data?.message ||
+          "Failed to delete account. Please try again."
+      );
+    }
+  };
+
   return (
     <div className="p-6 bg-white rounded-xl shadow-md">
       {/* Header: Title + Add New Account button */}
@@ -468,13 +507,13 @@ const Accounts = () => {
         <div className="flex gap-4">
           <button
             onClick={() => setIsDepositModalOpen(true)}
-            className="bg-green-500 text-white px-4 py-2 rounded-md hover:bg-green-600"
+            className="bg-green-500 text-white px-4 py-2 rounded-md hover:bg-green-600 cursor-pointer"
           >
             Deposit Funds
           </button>
           <button
             onClick={() => setIsAddModalOpen(true)}
-            className="bg-blue-500 text-white px-4 py-2 rounded-md hover:bg-blue-600"
+            className="bg-blue-500 text-white px-4 py-2 rounded-md hover:bg-blue-600 cursor-pointer"
           >
             Add New Account
           </button>
@@ -559,16 +598,26 @@ const Accounts = () => {
                 <td className="p-3 text-sm text-gray-700">{acc.accountType}</td>
                 <td className="p-3 text-sm text-gray-700">{acc.branch}</td>
                 <td className="p-3 text-sm text-gray-700">
-                  ${acc.balance.toLocaleString()}
+                  $
+                  {typeof acc.balance === "number"
+                    ? acc.balance.toLocaleString()
+                    : "0"}
                 </td>
                 <td className="p-3 text-sm text-gray-700">{acc.dateOpened}</td>
                 <td className="p-3 text-sm text-gray-700">{acc.status}</td>
                 <td className="p-3 text-sm text-gray-700">
                   <button
                     onClick={() => openDetailModal(acc)}
-                    className="bg-green-500 text-white px-3 py-1 rounded hover:bg-green-600"
+                    className="bg-green-500 text-white px-3 py-1 rounded hover:bg-green-600 cursor-pointer"
                   >
                     View
+                  </button>
+                  <button
+                    onClick={() => handleDeleteAccount(acc)}
+                    className="bg-red-500 text-white px-2 py-1 rounded hover:bg-red-600 ml-2 cursor-pointer"
+                    title="Delete Account"
+                  >
+                    Delete
                   </button>
                 </td>
               </tr>
@@ -590,7 +639,7 @@ const Accounts = () => {
       {/* ======== Add New Account Modal ======== */}
       {isAddModalOpen && (
         <div
-          className="fixed inset-0 flex items-center justify-center z-50 backdrop-blur-sm"
+          className="fixed inset-0 flex items-center justify-center z-50 backdrop-blur-[2px] bg-transparent"
           onClick={() => setIsAddModalOpen(false)}
         >
           <div
@@ -743,7 +792,7 @@ const Accounts = () => {
               <div className="flex justify-end">
                 <button
                   type="submit"
-                  className="bg-blue-500 text-white px-4 py-2 rounded-md hover:bg-blue-600 transition-colors duration-200"
+                  className="bg-blue-500 text-white px-4 py-2 rounded-md hover:bg-blue-600 cursor-pointer"
                   disabled={!selectedCustomer}
                 >
                   Create Account
@@ -752,7 +801,7 @@ const Accounts = () => {
             </form>
             <button
               onClick={() => setIsAddModalOpen(false)}
-              className="absolute top-4 right-4 text-gray-500 hover:text-gray-700 text-2xl"
+              className="absolute top-4 right-4 text-gray-500 hover:text-gray-700 cursor-pointer text-2xl"
             >
               &times;
             </button>
@@ -763,7 +812,7 @@ const Accounts = () => {
       {/* ======== Account Detail Modal (View/Edit/Close) ======== */}
       {isDetailModalOpen && selectedAccount && (
         <div
-          className="fixed inset-0 flex items-center justify-center z-50 backdrop-blur-sm"
+          className="fixed inset-0 flex items-center justify-center z-50 backdrop-blur-[2px] bg-transparent"
           onClick={() => setIsDetailModalOpen(false)}
         >
           <div
@@ -915,14 +964,14 @@ const Accounts = () => {
               <div className="flex justify-between items-center mt-6">
                 <button
                   type="submit"
-                  className="bg-green-500 text-white px-4 py-2 rounded-md hover:bg-green-600"
+                  className="bg-green-500 text-white px-4 py-2 rounded-md hover:bg-green-600 cursor-pointer"
                 >
                   Save Changes
                 </button>
                 <button
                   type="button"
                   onClick={handleCloseAccount}
-                  className="bg-red-500 text-white px-4 py-2 rounded-md hover:bg-red-600"
+                  className="bg-red-500 text-white px-4 py-2 rounded-md hover:bg-red-600 cursor-pointer"
                 >
                   Close Account
                 </button>
@@ -932,7 +981,7 @@ const Accounts = () => {
             {/* Close (×) Button */}
             <button
               onClick={() => setIsDetailModalOpen(false)}
-              className="absolute top-4 right-4 text-gray-500 hover:text-gray-700 text-2xl"
+              className="absolute top-4 right-4 text-gray-500 hover:text-gray-700 cursor-pointer text-2xl"
             >
               &times;
             </button>
@@ -943,7 +992,7 @@ const Accounts = () => {
       {/* ======== Deposit Funds Modal ======== */}
       {isDepositModalOpen && (
         <div
-          className="fixed inset-0 flex items-center justify-center z-50 backdrop-blur-sm"
+          className="fixed inset-0 flex items-center justify-center z-50 backdrop-blur-[2px] bg-transparent"
           onClick={() => setIsDepositModalOpen(false)}
         >
           <div
@@ -1068,7 +1117,7 @@ const Accounts = () => {
               <div className="flex justify-end">
                 <button
                   type="submit"
-                  className="bg-green-500 text-white px-4 py-2 rounded-md hover:bg-green-600"
+                  className="bg-green-500 text-white px-4 py-2 rounded-md hover:bg-green-600 cursor-pointer"
                 >
                   Process Deposit
                 </button>
@@ -1078,7 +1127,7 @@ const Accounts = () => {
             {/* Close (×) Button */}
             <button
               onClick={() => setIsDepositModalOpen(false)}
-              className="absolute top-4 right-4 text-gray-500 hover:text-gray-700 text-2xl"
+              className="absolute top-4 right-4 text-gray-500 hover:text-gray-700 cursor-pointer text-2xl"
             >
               &times;
             </button>
