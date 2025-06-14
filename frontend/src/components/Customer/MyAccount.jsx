@@ -8,37 +8,43 @@ const MyAccount = () => {
   const [selectedAccount, setSelectedAccount] = useState(null);
   // State for transaction history
   const [transactions, setTransactions] = useState([]);
+  // State for loading and error
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
   // Fetch accounts data when component mounts
   useEffect(() => {
-    // TODO: Replace with actual API call
     const fetchAccounts = async () => {
       try {
-        // Mock data for demonstration
-        const mockAccounts = [
-          {
-            id: 1,
-            accountNumber: "SAV-001",
-            type: "Savings",
-            balance: 15000,
-            currency: "USD",
-            status: "Active",
-            openedDate: "2023-01-15"
-          },
-          {
-            id: 2,
-            accountNumber: "CHK-001",
-            type: "Checking",
-            balance: 8500,
-            currency: "USD",
-            status: "Active",
-            openedDate: "2023-02-20"
-          }
-        ];
-        setAccounts(mockAccounts);
-        setSelectedAccount(mockAccounts[0]); // Select first account by default
+        //const customerId = "35194d9c-c9c3-4b97-b7c8-f139f7a929e2"; // Use the same customer ID as Dashboard
+        const customerId = "d799ac61-ce27-41c3-8783-4da193564046"
+        // Fetch user accounts
+        const accountsResponse = await fetch(`http://localhost:8000/api/user/${customerId}/accounts`);
+        if (!accountsResponse.ok) {
+          throw new Error('Failed to fetch customer accounts');
+        }
+        const accountsData = await accountsResponse.json();
+
+        // Map accounts data to desired structure
+        const mappedAccounts = accountsData.data.map(account => ({
+          id: account.accountNumber,
+          accountNumber: account.accountNumber,
+          type: account.accountType,
+          balance: account.balance,
+          currency: "USD",
+          status: "Active",
+          openedDate: new Date().toISOString().split('T')[0],
+        }));
+
+        setAccounts(mappedAccounts);
+        if (mappedAccounts.length > 0) {
+          setSelectedAccount(mappedAccounts[0]); // Select first account by default
+        }
       } catch (error) {
         console.error("Error fetching accounts:", error);
+        setError(error.message);
+      } finally {
+        setLoading(false);
       }
     };
 
@@ -47,12 +53,12 @@ const MyAccount = () => {
 
   // Fetch transactions when selected account changes
   useEffect(() => {
-    // TODO: Replace with actual API call
     const fetchTransactions = async () => {
       if (!selectedAccount) return;
 
       try {
-        // Mock data for demonstration
+        // TODO: Replace with actual API endpoint when available
+        // For now, using mock data
         const mockTransactions = [
           {
             id: 1,
@@ -98,6 +104,7 @@ const MyAccount = () => {
         setTransactions(mockTransactions);
       } catch (error) {
         console.error("Error fetching transactions:", error);
+        setError(error.message);
       }
     };
 
@@ -126,6 +133,22 @@ const MyAccount = () => {
       day: 'numeric'
     });
   };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-gray-600">Loading...</div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-red-600">Error: {error}</div>
+      </div>
+    );
+  }
 
   return (
     // Main container with responsive padding
@@ -191,16 +214,9 @@ const MyAccount = () => {
           {/* Transaction list */}
           <div className="divide-y divide-gray-200">
             {transactions.map((transaction) => (
-              // Individual transaction row
-              <div
-                key={transaction.id}
-                className="p-4 flex items-center justify-between hover:bg-gray-50"
-              >
-                {/* Transaction details */}
+              <div key={transaction.id} className="p-6 flex items-center justify-between">
                 <div className="flex items-center space-x-4">
-                  <div className="p-2 bg-gray-100 rounded-full">
-                    {getTransactionIcon(transaction.type)}
-                  </div>
+                  {getTransactionIcon(transaction.type)}
                   <div>
                     <p className="text-sm font-medium text-gray-900">
                       {transaction.description}
@@ -210,21 +226,13 @@ const MyAccount = () => {
                     </p>
                   </div>
                 </div>
-                {/* Transaction amount and status */}
                 <div className="text-right">
-                  <p
-                    className={`text-sm font-medium ${
-                      transaction.type === 'deposit'
-                        ? 'text-green-600'
-                        : 'text-red-600'
-                    }`}
-                  >
-                    {transaction.type === 'deposit' ? '+' : '-'}$
-                    {transaction.amount.toLocaleString()}
+                  <p className={`text-sm font-medium ${
+                    transaction.type === 'deposit' ? 'text-green-600' : 'text-red-600'
+                  }`}>
+                    {transaction.type === 'deposit' ? '+' : '-'}${transaction.amount.toLocaleString()}
                   </p>
-                  <p className="text-xs text-gray-500 capitalize">
-                    {transaction.status}
-                  </p>
+                  <p className="text-xs text-gray-500 capitalize">{transaction.status}</p>
                 </div>
               </div>
             ))}

@@ -14,23 +14,43 @@ const Transfer = () => {
   // State for accounts list and loading state
   const [accounts, setAccounts] = useState([]);
   const [message, setMessage] = useState({ type: '', text: '' });
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState(null);
 
   // Fetch accounts data on component mount
   useEffect(() => {
-    // TODO: Replace with actual API call
-    // const fetchAccounts = async () => {
-    //   const response = await fetch('/api/accounts');
-    //   const data = await response.json();
-    //   setAccounts(data);
-    // };
-    // fetchAccounts();
+    const fetchAccounts = async () => {
+      try {
+        const customerId = "35194d9c-c9c3-4b97-b7c8-f139f7a929e2"; // Use the same customer ID as Dashboard
+        
+        // Fetch user accounts
+        const accountsResponse = await fetch(`http://localhost:8000/api/user/${customerId}/accounts`);
+        if (!accountsResponse.ok) {
+          throw new Error('Failed to fetch customer accounts');
+        }
+        const accountsData = await accountsResponse.json();
 
-    // Mock data for development
-    setAccounts([
-      { id: '1', accountNumber: '1234567890', type: 'Savings', balance: 5000 },
-      { id: '2', accountNumber: '0987654321', type: 'Checking', balance: 3000 }
-    ]);
+        // Map accounts data to desired structure
+        const mappedAccounts = accountsData.data.map(account => ({
+          id: account.accountNumber,
+          accountNumber: account.accountNumber,
+          type: account.accountType,
+          balance: account.balance,
+          currency: "USD",
+          status: "Active",
+          openedDate: new Date().toISOString().split('T')[0],
+        }));
+
+        setAccounts(mappedAccounts);
+      } catch (error) {
+        console.error("Error fetching accounts:", error);
+        setError(error.message);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchAccounts();
   }, []);
 
   // Handle form input changes
@@ -49,22 +69,29 @@ const Transfer = () => {
     setMessage({ type: '', text: '' });
 
     try {
-      // TODO: Replace with actual API call
-      // const response = await fetch('/api/transfers', {
-      //   method: 'POST',
-      //   headers: {
-      //     'Content-Type': 'application/json',
-      //   },
-      //   body: JSON.stringify(formData)
-      // });
+      const response = await fetch('http://localhost:8000/api/transactions/transfer', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          fromAccountNumber: formData.fromAccount,
+          toAccountNumber: formData.toAccount,
+          amount: parseFloat(formData.amount),
+          description: formData.description,
+          transferType: formData.transferType
+        }),
+      });
 
-      // Simulate API call delay
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      const data = await response.json();
 
-      // Show success message
+      if (!response.ok) {
+        throw new Error(data.message || 'Failed to process transfer');
+      }
+
       setMessage({
         type: 'success',
-        text: 'Transfer completed successfully!'
+        text: 'Transfer processed successfully!'
       });
 
       // Reset form
@@ -75,91 +102,96 @@ const Transfer = () => {
         description: '',
         transferType: 'internal'
       });
+
+      // Refresh accounts list to update balances
+      const accountsResponse = await fetch(`http://localhost:8000/api/user/35194d9c-c9c3-4b97-b7c8-f139f7a929e2/accounts`);
+      if (accountsResponse.ok) {
+        const accountsData = await accountsResponse.json();
+        const mappedAccounts = accountsData.data.map(account => ({
+          id: account.accountNumber,
+          accountNumber: account.accountNumber,
+          type: account.accountType,
+          balance: account.balance,
+          currency: "USD",
+          status: "Active",
+          openedDate: new Date().toISOString().split('T')[0],
+        }));
+        setAccounts(mappedAccounts);
+      }
+
     } catch (error) {
+      console.error('Error processing transfer:', error);
       setMessage({
         type: 'error',
-        text: 'Failed to process transfer. Please try again.'
+        text: error.message || 'Failed to process transfer. Please try again.'
       });
     } finally {
       setIsLoading(false);
     }
   };
 
-  return (
-    // Main container with responsive padding
-    <div className="max-w-4xl mx-auto px-4 py-8">
-      {/* Page header */}
-      <div className="bg-white rounded-2xl shadow-xl p-8">
-        <div className="flex items-center justify-between mb-8">
-          <h1 className="text-3xl font-bold text-gray-800">Transfer Money</h1>
-          <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
-            <svg 
-              className="w-6 h-6 text-blue-600" 
-              fill="none" 
-              stroke="currentColor" 
-              viewBox="0 0 24 24"
-            >
-              <path 
-                strokeLinecap="round" 
-                strokeLinejoin="round" 
-                strokeWidth={2} 
-                d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" 
-              />
-            </svg>
-          </div>
-        </div>
+  if (isLoading && accounts.length === 0) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-gray-600">Loading...</div>
+      </div>
+    );
+  }
 
-        {/* Success/Error message display */}
+  if (error && accounts.length === 0) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-red-600">Error: {error}</div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <div className="bg-white rounded-lg shadow p-6">
+        <h1 className="text-2xl font-bold text-gray-900 mb-6">Transfer Funds</h1>
+
         {message.text && (
-          <div
-            className={`p-4 mb-6 rounded-lg ${
-              message.type === 'success'
-                ? 'bg-green-50 text-green-700 border border-green-200'
-                : 'bg-red-50 text-red-700 border border-red-200'
-            }`}
-          >
+          <div className={`mb-4 p-4 rounded-md ${
+            message.type === 'success' ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'
+          }`}>
             {message.text}
           </div>
         )}
 
         <form onSubmit={handleSubmit} className="space-y-6">
-          {/* Transfer Type */}
-          <div className="md:col-span-2">
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Transfer Type
-            </label>
-            <div className="flex space-x-4">
-              <label className="flex items-center">
+          {/* Transfer Type Selection */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700">Transfer Type</label>
+            <div className="mt-1 flex space-x-4">
+              <label className="inline-flex items-center">
                 <input
                   type="radio"
                   name="transferType"
                   value="internal"
                   checked={formData.transferType === 'internal'}
                   onChange={handleChange}
-                  className="h-4 w-4 text-blue-600 focus:ring-blue-500"
+                  className="form-radio text-blue-600"
                 />
-                <span className="ml-2 text-gray-700">Internal Transfer</span>
+                <span className="ml-2">Internal Transfer</span>
               </label>
-              <label className="flex items-center">
+              <label className="inline-flex items-center">
                 <input
                   type="radio"
                   name="transferType"
                   value="external"
                   checked={formData.transferType === 'external'}
                   onChange={handleChange}
-                  className="h-4 w-4 text-blue-600 focus:ring-blue-500"
+                  className="form-radio text-blue-600"
                 />
-                <span className="ml-2 text-gray-700">External Transfer</span>
+                <span className="ml-2">External Transfer</span>
               </label>
             </div>
           </div>
 
-          {/* From Account */}
+          {/* From Account Selection */}
           <div>
-            <label
-              htmlFor="fromAccount"
-              className="block text-sm font-medium text-gray-700 mb-2"
-            >
+            <label htmlFor="fromAccount" className="block text-sm font-medium text-gray-700">
               From Account
             </label>
             <select
@@ -167,26 +199,22 @@ const Transfer = () => {
               name="fromAccount"
               value={formData.fromAccount}
               onChange={handleChange}
-              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               required
+              className="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md"
             >
-              <option value="">Select account</option>
-              {accounts.map((account) => (
-                <option key={account.id} value={account.id}>
-                  {account.type} Account - {account.accountNumber} (Balance: $
-                  {account.balance.toLocaleString()})
+              <option value="">Select source account</option>
+              {accounts.map(account => (
+                <option key={account.id} value={account.accountNumber}>
+                  {account.type} Account - {account.accountNumber} (Balance: ${account.balance.toLocaleString()})
                 </option>
               ))}
             </select>
           </div>
 
-          {/* To Account */}
+          {/* To Account Input */}
           <div>
-            <label
-              htmlFor="toAccount"
-              className="block text-sm font-medium text-gray-700 mb-2"
-            >
-              {formData.transferType === 'internal' ? 'To Account' : 'Recipient Account'}
+            <label htmlFor="toAccount" className="block text-sm font-medium text-gray-700">
+              To Account
             </label>
             {formData.transferType === 'internal' ? (
               <select
@@ -194,14 +222,14 @@ const Transfer = () => {
                 name="toAccount"
                 value={formData.toAccount}
                 onChange={handleChange}
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 required
+                className="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md"
               >
-                <option value="">Select account</option>
+                <option value="">Select destination account</option>
                 {accounts
-                  .filter(account => account.id !== parseInt(formData.fromAccount))
-                  .map((account) => (
-                    <option key={account.id} value={account.id}>
+                  .filter(account => account.accountNumber !== formData.fromAccount)
+                  .map(account => (
+                    <option key={account.id} value={account.accountNumber}>
                       {account.type} Account - {account.accountNumber}
                     </option>
                   ))}
@@ -213,55 +241,50 @@ const Transfer = () => {
                 name="toAccount"
                 value={formData.toAccount}
                 onChange={handleChange}
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                placeholder="Enter recipient account number"
                 required
+                className="mt-1 focus:ring-blue-500 focus:border-blue-500 block w-full shadow-sm sm:text-sm border-gray-300 rounded-md"
+                placeholder="Enter destination account number"
               />
             )}
           </div>
 
-          {/* Amount */}
+          {/* Amount Input */}
           <div>
-            <label
-              htmlFor="amount"
-              className="block text-sm font-medium text-gray-700 mb-2"
-            >
+            <label htmlFor="amount" className="block text-sm font-medium text-gray-700">
               Amount
             </label>
-            <div className="relative">
-              <span className="absolute left-4 top-3 text-gray-500">$</span>
+            <div className="mt-1 relative rounded-md shadow-sm">
+              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                <span className="text-gray-500 sm:text-sm">$</span>
+              </div>
               <input
                 type="number"
-                id="amount"
                 name="amount"
+                id="amount"
                 value={formData.amount}
                 onChange={handleChange}
-                className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                placeholder="0.00"
+                required
                 min="0.01"
                 step="0.01"
-                required
+                className="focus:ring-blue-500 focus:border-blue-500 block w-full pl-7 pr-12 sm:text-sm border-gray-300 rounded-md"
+                placeholder="0.00"
               />
             </div>
           </div>
 
-          {/* Description */}
+          {/* Description Input */}
           <div>
-            <label
-              htmlFor="description"
-              className="block text-sm font-medium text-gray-700 mb-2"
-            >
-              Description
+            <label htmlFor="description" className="block text-sm font-medium text-gray-700">
+              Description (Optional)
             </label>
             <input
               type="text"
-              id="description"
               name="description"
+              id="description"
               value={formData.description}
               onChange={handleChange}
-              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              placeholder="Enter transfer description"
-              required
+              className="mt-1 focus:ring-blue-500 focus:border-blue-500 block w-full shadow-sm sm:text-sm border-gray-300 rounded-md"
+              placeholder="Enter a description for this transfer"
             />
           </div>
 
@@ -270,35 +293,16 @@ const Transfer = () => {
             <button
               type="submit"
               disabled={isLoading}
-              className={`w-full bg-blue-600 text-white py-3 px-4 rounded-lg font-medium
-                ${isLoading ? 'opacity-75 cursor-not-allowed' : 'hover:bg-blue-700 transform hover:scale-[1.02]'}
-                focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2
-                transition-all duration-200`}
+              className={`w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white ${
+                isLoading
+                  ? 'bg-blue-400 cursor-not-allowed'
+                  : 'bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500'
+              }`}
             >
-              {isLoading ? (
-                <div className="flex items-center justify-center">
-                  <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                  </svg>
-                  Processing...
-                </div>
-              ) : (
-                'Transfer Money'
-              )}
+              {isLoading ? 'Processing...' : 'Transfer Funds'}
             </button>
           </div>
         </form>
-
-        <div className="mt-8 p-4 bg-gray-50 rounded-lg">
-          <h3 className="text-sm font-medium text-gray-700 mb-2">Transfer Information</h3>
-          <ul className="text-sm text-gray-600 space-y-2">
-            <li>• Internal transfers are processed instantly</li>
-            <li>• External transfers may take 1-2 business days</li>
-            <li>• No fees for internal transfers</li>
-            <li>• External transfer fees may apply</li>
-          </ul>
-        </div>
       </div>
     </div>
   );
