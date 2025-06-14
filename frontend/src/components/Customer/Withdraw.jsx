@@ -11,24 +11,44 @@ const Withdraw = () => {
 
   // State for accounts list and loading state
   const [accounts, setAccounts] = useState([]);
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState(null);
   const [message, setMessage] = useState({ type: '', text: '' });
 
   // Fetch accounts data on component mount
   useEffect(() => {
-    // TODO: Replace with actual API call
-    // const fetchAccounts = async () => {
-    //   const response = await fetch('/api/accounts');
-    //   const data = await response.json();
-    //   setAccounts(data);
-    // };
-    // fetchAccounts();
+    const fetchAccounts = async () => {
+      try {
+        const customerId = "35194d9c-c9c3-4b97-b7c8-f139f7a929e2"; // Use the same customer ID as Dashboard
+        
+        // Fetch user accounts
+        const accountsResponse = await fetch(`http://localhost:8000/api/user/${customerId}/accounts`);
+        if (!accountsResponse.ok) {
+          throw new Error('Failed to fetch customer accounts');
+        }
+        const accountsData = await accountsResponse.json();
 
-    // Mock data for development
-    setAccounts([
-      { id: '1', accountNumber: '1234567890', type: 'Savings', balance: 5000 },
-      { id: '2', accountNumber: '0987654321', type: 'Checking', balance: 3000 }
-    ]);
+        // Map accounts data to desired structure
+        const mappedAccounts = accountsData.data.map(account => ({
+          id: account.accountNumber,
+          accountNumber: account.accountNumber,
+          type: account.accountType,
+          balance: account.balance,
+          currency: "USD",
+          status: "Active",
+          openedDate: new Date().toISOString().split('T')[0],
+        }));
+
+        setAccounts(mappedAccounts);
+      } catch (error) {
+        console.error("Error fetching accounts:", error);
+        setError(error.message);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchAccounts();
   }, []);
 
   // Handle form input changes
@@ -47,22 +67,27 @@ const Withdraw = () => {
     setMessage({ type: '', text: '' });
 
     try {
-      // TODO: Replace with actual API call
-      // const response = await fetch('/api/withdrawals', {
-      //   method: 'POST',
-      //   headers: {
-      //     'Content-Type': 'application/json',
-      //   },
-      //   body: JSON.stringify(formData)
-      // });
+      const response = await fetch('http://localhost:8000/api/transactions/withdraw', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          accountNumber: formData.account,
+          amount: parseFloat(formData.amount),
+          description: formData.description
+        }),
+      });
 
-      // Simulate API call delay
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      const data = await response.json();
 
-      // Show success message
+      if (!response.ok) {
+        throw new Error(data.message || 'Failed to process withdrawal');
+      }
+
       setMessage({
         type: 'success',
-        text: 'Withdrawal completed successfully!'
+        text: 'Withdrawal processed successfully!'
       });
 
       // Reset form
@@ -71,38 +96,59 @@ const Withdraw = () => {
         amount: '',
         description: ''
       });
+
+      // Refresh accounts list to update balances
+      const accountsResponse = await fetch(`http://localhost:8000/api/user/35194d9c-c9c3-4b97-b7c8-f139f7a929e2/accounts`);
+      if (accountsResponse.ok) {
+        const accountsData = await accountsResponse.json();
+        const mappedAccounts = accountsData.data.map(account => ({
+          id: account.accountNumber,
+          accountNumber: account.accountNumber,
+          type: account.accountType,
+          balance: account.balance,
+          currency: "USD",
+          status: "Active",
+          openedDate: new Date().toISOString().split('T')[0],
+        }));
+        setAccounts(mappedAccounts);
+      }
+
     } catch (error) {
+      console.error('Error processing withdrawal:', error);
       setMessage({
         type: 'error',
-        text: 'Failed to process withdrawal. Please try again.'
+        text: error.message || 'Failed to process withdrawal. Please try again.'
       });
     } finally {
       setIsLoading(false);
     }
   };
 
-  return (
-    // Main container with responsive padding
-    <div className="max-w-4xl mx-auto px-4 py-8">
-      {/* Page header */}
-      <div className="mb-8">
-        <h1 className="text-2xl font-bold text-gray-900">Withdraw Money</h1>
-        <p className="mt-1 text-sm text-gray-500">
-          Withdraw money from your account
-        </p>
+  if (isLoading && accounts.length === 0) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-gray-600">Loading...</div>
       </div>
+    );
+  }
 
-      {/* Withdrawal form */}
+  if (error && accounts.length === 0) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-red-600">Error: {error}</div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       <div className="bg-white rounded-lg shadow p-6">
-        {/* Success/Error message display */}
+        <h1 className="text-2xl font-bold text-gray-900 mb-6">Withdraw Funds</h1>
+
         {message.text && (
-          <div
-            className={`p-4 mb-6 rounded-md ${
-              message.type === 'success'
-                ? 'bg-green-50 text-green-700'
-                : 'bg-red-50 text-red-700'
-            }`}
-          >
+          <div className={`mb-4 p-4 rounded-md ${
+            message.type === 'success' ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'
+          }`}>
             {message.text}
           </div>
         )}
@@ -110,10 +156,7 @@ const Withdraw = () => {
         <form onSubmit={handleSubmit} className="space-y-6">
           {/* Account Selection */}
           <div>
-            <label
-              htmlFor="account"
-              className="block text-sm font-medium text-gray-700"
-            >
+            <label htmlFor="account" className="block text-sm font-medium text-gray-700">
               Select Account
             </label>
             <select
@@ -121,24 +164,21 @@ const Withdraw = () => {
               name="account"
               value={formData.account}
               onChange={handleChange}
-              className="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md"
               required
+              className="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md"
             >
-              <option value="">Select account</option>
-              {accounts.map((account) => (
-                <option key={account.id} value={account.id}>
-                  {account.type} - {account.accountNumber} (${account.balance})
+              <option value="">Select an account</option>
+              {accounts.map(account => (
+                <option key={account.id} value={account.accountNumber}>
+                  {account.type} Account - {account.accountNumber} (Balance: ${account.balance.toLocaleString()})
                 </option>
               ))}
             </select>
           </div>
 
-          {/* Withdrawal Amount */}
+          {/* Amount Input */}
           <div>
-            <label
-              htmlFor="amount"
-              className="block text-sm font-medium text-gray-700"
-            >
+            <label htmlFor="amount" className="block text-sm font-medium text-gray-700">
               Amount
             </label>
             <div className="mt-1 relative rounded-md shadow-sm">
@@ -151,30 +191,28 @@ const Withdraw = () => {
                 id="amount"
                 value={formData.amount}
                 onChange={handleChange}
+                required
+                min="0.01"
+                step="0.01"
                 className="focus:ring-blue-500 focus:border-blue-500 block w-full pl-7 pr-12 sm:text-sm border-gray-300 rounded-md"
                 placeholder="0.00"
-                required
-                min="1"
               />
             </div>
           </div>
 
-          {/* Withdrawal Description */}
+          {/* Description Input */}
           <div>
-            <label
-              htmlFor="description"
-              className="block text-sm font-medium text-gray-700"
-            >
-              Description
+            <label htmlFor="description" className="block text-sm font-medium text-gray-700">
+              Description (Optional)
             </label>
-            <textarea
-              id="description"
+            <input
+              type="text"
               name="description"
-              rows={3}
+              id="description"
               value={formData.description}
               onChange={handleChange}
-              className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-              placeholder="Enter withdrawal description"
+              className="mt-1 focus:ring-blue-500 focus:border-blue-500 block w-full shadow-sm sm:text-sm border-gray-300 rounded-md"
+              placeholder="Enter a description for this withdrawal"
             />
           </div>
 
@@ -183,26 +221,16 @@ const Withdraw = () => {
             <button
               type="submit"
               disabled={isLoading}
-              className={`w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 ${
-                isLoading ? 'opacity-50 cursor-not-allowed' : ''
+              className={`w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white ${
+                isLoading
+                  ? 'bg-blue-400 cursor-not-allowed'
+                  : 'bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500'
               }`}
             >
-              {isLoading ? 'Processing...' : 'Withdraw Money'}
+              {isLoading ? 'Processing...' : 'Withdraw Funds'}
             </button>
           </div>
         </form>
-
-        {/* Important Information Section */}
-        <div className="mt-8 pt-6 border-t border-gray-200">
-          <h3 className="text-lg font-medium text-gray-900">Important Information</h3>
-          <ul className="mt-4 space-y-2 text-sm text-gray-500">
-            <li>• Minimum withdrawal amount: $1</li>
-            <li>• Maximum daily withdrawal limit: $5,000</li>
-            <li>• ATM withdrawals are free at our network ATMs</li>
-            <li>• Non-network ATM withdrawals may incur fees</li>
-            <li>• Withdrawals are processed immediately</li>
-          </ul>
-        </div>
       </div>
     </div>
   );
