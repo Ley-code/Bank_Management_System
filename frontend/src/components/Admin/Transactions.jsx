@@ -61,6 +61,7 @@ const Transactions = () => {
         const response = await axios.get(
           "http://localhost:8000/api/admin/transactions"
         );
+        console.log("Transactions API response:", response.data); // Debug log
         if (response.data.status === "success") {
           setTransactions(response.data.data || []);
         } else {
