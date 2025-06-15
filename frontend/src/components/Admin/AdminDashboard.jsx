@@ -77,18 +77,20 @@ const AdminDashboard = () => {
           "http://localhost:8000/api/admin/dashboard"
         );
         if (response.data.status === "success") {
-          const {
-            dashboardStats,
-            keyMetrics,
-            monthlyTransactions,
-            accountTypeDistribution,
-            alerts,
-          } = response.data.data;
-          setDashboardStats(dashboardStats || {});
-          setKeyMetrics(keyMetrics || {});
-          setMonthlyTransactions(monthlyTransactions || []);
-          setAccountTypeDistribution(accountTypeDistribution || []);
-          setAlerts(alerts || {});
+          const data = response.data.data;
+          setDashboardStats({
+            totalAccounts: data.totalAccounts,
+            totalCustomers: data.totalCustomers,
+            totalTransactions: data.totalTransactions,
+            totalLoansIssued: data.totalBranches, // Adjust if needed
+          });
+          setKeyMetrics({
+            totalDeposits: data.totalDeposits,
+            totalWithdrawals: data.totalWithdrawals,
+            activeAccounts: data.activeAccounts || 0, // fallback if not present
+            closedAccounts: data.closedAccounts || 0, // fallback if not present
+          });
+          // If you have charts or alerts, set them here as well if present in the response
         } else {
           console.error("Failed to fetch dashboard data");
         }

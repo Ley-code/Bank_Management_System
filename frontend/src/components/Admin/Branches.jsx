@@ -248,7 +248,7 @@ const Branches = () => {
             <tbody>
               {paginatedBranches.map((b) => (
                 <tr
-                  key={b.id}
+                  key={b.id || b.branchName}
                   className="even:bg-gray-50 odd:bg-white hover:bg-gray-100"
                 >
                   <td className="px-4 py-3 text-sm text-gray-700">
