@@ -2,6 +2,8 @@ import { Body, Controller, Get, Param, Post } from '@nestjs/common';
 import { UserService } from './user.service';
 import { WithdrawDto } from './dto/withdrawdto';
 import { TransferDto } from './dto/transferdto';
+import { Loan } from 'src/core/entities/loan.entity';
+import { LoanRequestDto } from './dto/loanRequestdto';
 
 @Controller('user')
 export class UserController {
@@ -34,6 +36,15 @@ export class UserController {
     getUserTransactions(@Param('id') id: string ,@Param('accountNumber') accountNumber: string) {
         return this.userService.getUserTransactions(id, accountNumber);
     }
+
+    @Post('loanRequest')
+    requestLoan(@Param('id') id: string, @Body() loanRequestDto: LoanRequestDto) {
+        return this.userService.requestLoan(id, loanRequestDto);
+    }
     
+    @Get(':id/loanRequests/:accountNumber')
+    getUserLoanRequests(@Param('id') id: string, @Param('accountNumber') acountNumber: string) {
+        return this.userService.getUserLoanRequests(id,acountNumber);
+    }
 
 }

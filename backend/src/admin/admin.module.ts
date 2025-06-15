@@ -11,9 +11,10 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { Transaction } from 'src/core/entities/transaction.entity';
 import { Branch } from 'src/core/entities/branch.entity';
 import { EmployeeModule } from './employee/employee.module';
+import { LoansModule } from './loans/loan.module';
 
 @Module({
-    imports: [TypeOrmModule.forFeature([Transaction, Account,Branch]), AccountsModule,CustomerModule, BranchModule, DashboardModule, EmployeeModule],
+    imports: [TypeOrmModule.forFeature([Transaction, Account,Branch]), AccountsModule,CustomerModule, BranchModule, DashboardModule, EmployeeModule, LoansModule],
     controllers: [AdminController],
     providers: [AdminService],
     exports: [],

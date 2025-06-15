@@ -4,6 +4,7 @@ import { Branch } from 'src/core/entities/branch.entity';
 import { Employee } from 'src/core/entities/employee.entity';
 import { Repository } from 'typeorm';
 import { CreateEmployeeDto } from './dto/employeedto';
+import { UpdateEmployeeDto } from './dto/updateemployeedto';
 
 @Injectable()
 export class EmployeeService {
@@ -130,4 +131,64 @@ export class EmployeeService {
       message: 'Employee created successfully',
     };
   }
+    async updateEmployee(id: string, updateEmployeeDto: UpdateEmployeeDto) {
+        const employee = await this.employeeRepository.findOne({
+            where: { id },
+            relations: ['branch', 'supervisor'],
+        });
+        if (!employee) {
+            throw new BadRequestException('Employee not found');
+        }
+        // Update the employee's properties
+        Object.assign(employee, {...updateEmployeeDto, updatedAt: new Date()});
+
+        // If branchName is provided, find the branch and assign it
+        if (updateEmployeeDto.branchName) {
+            const branch = await this.branchRepository.findOne({
+                where: { branchName: updateEmployeeDto.branchName },
+            });
+            if (!branch) {
+                throw new BadRequestException('Branch not found');
+            }
+            employee.branch = branch;
+        }
+
+        // If supervisorId is provided, find the supervisor and assign it
+        if (updateEmployeeDto.supervisorId) {
+            const supervisor = await this.employeeRepository.findOne({
+                where: { id: updateEmployeeDto.supervisorId },
+            });
+            if (!supervisor) {
+                throw new BadRequestException('Supervisor not found');
+            }
+            employee.supervisor = supervisor;
+        }
+
+        const updatedEmployee = await this.employeeRepository.save(employee);
+        return {
+            status: 'success',
+            data: {
+                id: updatedEmployee.id,
+                name: updatedEmployee.fullName,
+                email: updatedEmployee.email,
+                position: updatedEmployee.position,
+                branch: updatedEmployee.branch ? updatedEmployee.branch.branchName : 'No branch assigned',
+                supervisor: updatedEmployee.supervisor ? updatedEmployee.supervisor.fullName : 'No supervisor assigned',
+            },
+            message: 'Employee updated successfully',
+        };
+    }
+    async deleteEmployee(id: string) {
+        const employee = await this.employeeRepository.findOne({
+            where: { id },
+        });
+        if (!employee) {
+            throw new BadRequestException('Employee not found');
+        }
+        await this.employeeRepository.remove(employee);
+        return {
+            status: 'success',
+            message: 'Employee deleted successfully',
+        };
+    }
 }
