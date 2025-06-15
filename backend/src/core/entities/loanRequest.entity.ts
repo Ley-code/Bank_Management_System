@@ -1,5 +1,6 @@
-import { Column, Entity, ManyToOne, PrimaryGeneratedColumn } from "typeorm";
+import { Column, Entity, ManyToOne, OneToOne, PrimaryGeneratedColumn } from "typeorm";
 import { Account } from "./account.entity";
+import { Loan } from "./loan.entity";
 
 export enum LoanType {
     PERSONAL = 'personal',
@@ -20,9 +21,9 @@ export enum EmploymentStatus {
 }
 
 export enum LoanRequestStatus {
-    PENDING = 'pending',
-    APPROVED = 'approved',
-    REJECTED = 'rejected',
+    PENDING = 'PENDING',
+    APPROVED = 'APPROVED',
+    REJECTED = 'REJECTED',
 }
 
 @Entity()
@@ -67,4 +68,8 @@ export class LoanRequest {
 
     @ManyToOne(() => Account, account => account.loanRequests, { nullable: false, onDelete: 'CASCADE' })
     account: Account;
+
+    @OneToOne(() => Loan, loan => loan.loanRequest, { nullable: true })
+    loan: Loan;
+
 }

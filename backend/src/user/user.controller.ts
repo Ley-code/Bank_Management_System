@@ -38,13 +38,18 @@ export class UserController {
     }
 
     @Post('loanRequest')
-    requestLoan(@Param('id') id: string, @Body() loanRequestDto: LoanRequestDto) {
-        return this.userService.requestLoan(id, loanRequestDto);
+    requestLoan(@Body() loanRequestDto: LoanRequestDto) {
+        return this.userService.requestLoan(loanRequestDto);
     }
     
     @Get(':id/loanRequests/:accountNumber')
     getUserLoanRequests(@Param('id') id: string, @Param('accountNumber') acountNumber: string) {
         return this.userService.getUserLoanRequests(id,acountNumber);
+    }
+
+    @Get(':id/loans')
+    getUserLoans(@Param('id') id: string) {
+        return this.userService.getUserLoans(id);
     }
 
 }
