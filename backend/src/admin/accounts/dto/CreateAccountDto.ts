@@ -1,5 +1,5 @@
 import { AccountType } from "src/core/entities/account.entity";
-import { IsNotEmpty, IsString, IsNumber, IsEnum } from "class-validator";
+import { IsNotEmpty, IsString, IsNumber, IsEnum, IsOptional } from "class-validator";
 
 export class CreateAccountDto {
     @IsNotEmpty()
@@ -16,9 +16,10 @@ export class CreateAccountDto {
 
     @IsNotEmpty()
     @IsNumber()
-    initialBalance: number;
+    balance: number;
 
     @IsNotEmpty()
     @IsString()
     branchName: string;
+
 }

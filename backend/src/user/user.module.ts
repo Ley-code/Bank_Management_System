@@ -6,8 +6,9 @@ import { Account } from 'src/core/entities/account.entity';
 import { Customer } from 'src/core/entities/customer.entity';
 import { Transaction } from 'src/core/entities/transaction.entity';
 import { Branch } from 'src/core/entities/branch.entity';
+import { LoanRequest } from 'src/core/entities/loanRequest.entity';
 @Module({
-  imports: [TypeOrmModule.forFeature([Account,Customer,Transaction, Branch])],
+  imports: [TypeOrmModule.forFeature([Account,Customer,Transaction, Branch, LoanRequest])],
   controllers: [UserController],
   providers: [UserService]
 })

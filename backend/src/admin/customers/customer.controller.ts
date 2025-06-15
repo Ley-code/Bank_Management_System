@@ -1,6 +1,7 @@
 import { Body, Controller, Delete, Get, Param, Post, Put } from '@nestjs/common';
 import { CreateCustomerDto } from './dto/createCustomerdto';
 import { CustomerService } from './customer.service';
+import { UpdateCustomerDto } from './dto/updateCustomerdto';
 
 @Controller('admin/customers') // Define the base route for this controller
 export class CustomerController {
@@ -25,14 +26,13 @@ export class CustomerController {
     }
 
     @Put(':id')
-    update(@Param('id') id: string, @Body() updateUserDto: any) {
-        // Update a user by id
-        return `This action updates a user with id: ${id}`;
+    update(@Param('id') id: string, @Body() updateCustomerDto: UpdateCustomerDto) {
+        return this.customerService.updateCustomer(id, updateCustomerDto);
     }
 
     @Delete(':id')
     remove(@Param('id') id: string) {
         // Remove a user by id
-        return `This action removes a user with id: ${id}`;
+        return this.customerService.deleteCustomer(id);
     }
 }

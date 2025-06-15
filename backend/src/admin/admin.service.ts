@@ -30,7 +30,7 @@ export class AdminService {
                 amount: transaction.amount,
                 type: transaction.type,
                 accountNumber: transaction.account.accountNumber,
-                transactionDate: transaction.date.toISOString(),
+                transactionDate: transaction.createdAt.toISOString(),
                 transactionDirection: transaction.direction,
                 transactionGroupid: transaction.transactionGroupId,
                 notes: transaction.notes,   
@@ -80,7 +80,7 @@ export class AdminService {
             amount,
             type: 'deposit',
             direction: 'credit',
-            date: new Date(),
+            createdAt: new Date(),
             notes: `Deposit of ${amount} to account ${accountNumber}`,
         });
 
@@ -94,7 +94,7 @@ export class AdminService {
                 accountNumber: account.accountNumber,
                 newBalance: account.balance,
                 branchName: branch.branchName,
-                transactionDate: transaction.date.toISOString(),
+                transactionDate: transaction.createdAt.toISOString(),
             },
             message: 'Deposit successful',
         };

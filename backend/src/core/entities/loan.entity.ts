@@ -19,18 +19,23 @@ export class Loan{
     dueDate: Date;
 
     @Column({ type: 'varchar', length: 100 })
-    status: string; // e.g., 'pending', 'approved', 'rejected', 'paid'
+    status: string; 
+
     @ManyToOne(() => Account, (account) => account.loans, { onDelete: 'CASCADE' })
-    account: Account; // Reference to the account associated with the loan
+    account: Account; 
+
     @ManyToOne(() => Branch, (branch) => branch.loans, { onDelete: 'SET NULL' })
-    branch: Branch; // Reference to the branch where the loan was issued
+    branch: Branch; 
 
     @OneToMany(() => Payment, (payment) => payment.loan)
     payments: Payment[]
+
     @Column({ type: 'timestamp', default: () => 'CURRENT_TIMESTAMP' })
     createdAt: Date;
+
     @Column({ type: 'timestamp', default: () => 'CURRENT_TIMESTAMP', onUpdate: 'CURRENT_TIMESTAMP' })
     updatedAt: Date;
+    
     @Column({ type: 'varchar', length: 100, nullable: true })
-    borrowerName?: string; // Name of the borrower           
+    borrowerName?: string;          
 }

@@ -5,6 +5,7 @@ import { Branch } from 'src/core/entities/branch.entity';
 import { Customer } from 'src/core/entities/customer.entity';
 import { Repository } from 'typeorm';
 import { CreateAccountDto } from './dto/CreateAccountDto';
+import { UpdateAccountDto } from './dto/updateAccountdto';
 
 @Injectable()
 export class AccountsService {
@@ -36,17 +37,17 @@ export class AccountsService {
         if( !existingBank) {
             throw new NotFoundException('Branch not found');
         }
-        console.log('balance,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,', createAccountDto.initialBalance);
+        console.log('balance,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,', createAccountDto.balance);
         // Create the account and associate it with the customer
         const account = this.accountsRepository.create({
             ...createAccountDto,
-            balance: createAccountDto.initialBalance,
+            balance: createAccountDto.balance,
             customer: customer,
             branch: existingBank,
         });
         const savedAccount = await this.accountsRepository.save(account);
 
-        existingBank.totalDeposits+= createAccountDto.initialBalance
+        existingBank.totalDeposits+= createAccountDto.balance
         await this.branchRepository.save(existingBank)
 
         return {
@@ -100,6 +101,39 @@ export class AccountsService {
         return {
             status : "success"
         }
+    }
+
+    async updateAccount(id: string, updateAccountDto: UpdateAccountDto) {
+        const account = await this.accountsRepository.findOne({
+            where: { accountNumber: id },
+        });
+
+        if (!account) {
+            throw new NotFoundException('Account not found');
+        }
+
+        // Update the account properties
+        Object.assign(account, updateAccountDto);
+
+        // Save the updated account
+        const updatedAccount = await this.accountsRepository.save(account);
+
+        return {
+            status: 'success',
+            data: {
+                updatedAccount: {
+                    accountNumber: updatedAccount.accountNumber,
+                    balance: updatedAccount.balance,
+                    accountType: updatedAccount.accountType,
+                    accountCurrencyCode: updatedAccount.currencyCode,
+                    accountHolder: updatedAccount.customer.fullName,
+                    accountHolderPhone: updatedAccount.customer.phone,
+                    accountStatus: updatedAccount.status,
+                    accountDateCreated: updatedAccount.createdAt.toISOString().split('T')[0],
+                },
+            },
+            message: 'Account updated successfully',
+        };
     }
     
 }
