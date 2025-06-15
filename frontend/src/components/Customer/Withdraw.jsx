@@ -19,8 +19,7 @@ const Withdraw = () => {
   useEffect(() => {
     const fetchAccounts = async () => {
       try {
-        // const customerId = "d799ac61-ce27-41c3-8783-4da193564046";
-        const customerId = "35194d9c-c9c3-4b97-b7c8-f139f7a929e2"; // Use the same customer ID as Dashboard
+        const customerId = "d799ac61-ce27-41c3-8783-4da193564046"; // Use the same customer ID as Dashboard
         
         // Fetch user accounts
         const accountsResponse = await fetch(`http://localhost:8000/api/user/${customerId}/accounts`);
@@ -68,7 +67,7 @@ const Withdraw = () => {
     setMessage({ type: '', text: '' });
 
     try {
-      const response = await fetch('http://localhost:8000/api/transactions/withdraw', {
+      const response = await fetch('http://localhost:8000/api/user/withdraw', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -76,7 +75,6 @@ const Withdraw = () => {
         body: JSON.stringify({
           accountNumber: formData.account,
           amount: parseFloat(formData.amount),
-          description: formData.description
         }),
       });
 

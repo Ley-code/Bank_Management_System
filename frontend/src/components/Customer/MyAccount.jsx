@@ -11,13 +11,14 @@ const MyAccount = () => {
   // State for loading and error
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const customerId = "d799ac61-ce27-41c3-8783-4da193564046"
 
   // Fetch accounts data when component mounts
   useEffect(() => {
     const fetchAccounts = async () => {
       try {
         //const customerId = "35194d9c-c9c3-4b97-b7c8-f139f7a929e2"; // Use the same customer ID as Dashboard
-        const customerId = "d799ac61-ce27-41c3-8783-4da193564046"
+        
         // Fetch user accounts
         const accountsResponse = await fetch(`http://localhost:8000/api/user/${customerId}/accounts`);
         if (!accountsResponse.ok) {
@@ -59,49 +60,23 @@ const MyAccount = () => {
       try {
         // TODO: Replace with actual API endpoint when available
         // For now, using mock data
-        const mockTransactions = [
-          {
-            id: 1,
-            type: "deposit",
-            amount: 1000,
-            date: "2024-03-15",
-            description: "Salary Deposit",
-            status: "completed"
-          },
-          {
-            id: 2,
-            type: "withdrawal",
-            amount: 500,
-            date: "2024-03-14",
-            description: "ATM Withdrawal",
-            status: "completed"
-          },
-          {
-            id: 3,
-            type: "transfer",
-            amount: 200,
-            date: "2024-03-13",
-            description: "Transfer to John",
-            status: "completed"
-          },
-          {
-            id: 4,
-            type: "deposit",
-            amount: 750,
-            date: "2024-03-12",
-            description: "Mobile Deposit",
-            status: "completed"
-          },
-          {
-            id: 5,
-            type: "withdrawal",
-            amount: 300,
-            date: "2024-03-11",
-            description: "Online Purchase",
-            status: "completed"
-          }
-        ];
-        setTransactions(mockTransactions);
+        const response = await fetch(`http://localhost:8000/api/user/${customerId}/transactions/${selectedAccount.id}`);
+        if (!response.ok) {
+          throw new Error('Failed to fetch transactions');
+        }
+        const transactionsData = await response.json();
+        console.log("Transactions Data:", transactionsData);
+        // Map transactions data to desired structure
+        const transactions = transactionsData.data.map(transaction => ({
+          id: transaction.id,
+          type: transaction.type,
+          amount: transaction.amount,
+          date: transaction.createdAt,
+          description: transaction.notes,
+          status: transaction.status,
+          direction: transaction.direction,
+        }));
+        setTransactions(transactions);
       } catch (error) {
         console.error("Error fetching transactions:", error);
         setError(error.message);
@@ -228,9 +203,9 @@ const MyAccount = () => {
                 </div>
                 <div className="text-right">
                   <p className={`text-sm font-medium ${
-                    transaction.type === 'deposit' ? 'text-green-600' : 'text-red-600'
+                    transaction.direction === 'credit' ? 'text-green-600' : 'text-red-600'
                   }`}>
-                    {transaction.type === 'deposit' ? '+' : '-'}${transaction.amount.toLocaleString()}
+                    {transaction.direction === 'credit' ? '+' : '-'}${transaction.amount.toLocaleString()}
                   </p>
                   <p className="text-xs text-gray-500 capitalize">{transaction.status}</p>
                 </div>

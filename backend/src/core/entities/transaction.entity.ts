@@ -20,12 +20,14 @@ export class Transaction {
   transactionGroupId?: string;
 
   @Column({ type: 'timestamp', default: () => 'CURRENT_TIMESTAMP' })
-  date: Date;
+  createdAt: Date;
 
   @Column({ nullable: true })
   notes: string;
 
   @ManyToOne(() => Account, (account) => account.transactions, { onDelete: 'CASCADE' })
   account: Account;
+
+
 
 }

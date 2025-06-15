@@ -4,6 +4,8 @@ import { Branch } from './branch.entity';
 import { Transaction } from './transaction.entity';
 import { OneToMany } from 'typeorm';
 import { Loan } from './loan.entity';
+import { LoanRequest } from './loanRequest.entity';
+
 export enum AccountType {
     SAVINGS = 'SAVINGS',
     CHECKING = 'CHECKING',
@@ -55,6 +57,9 @@ export class Account {
 
     @OneToMany(()=> Loan, loan => loan.account, {cascade: true} )
     loans: Loan[];
+
+    @OneToMany(() => LoanRequest, loanRequest => loanRequest.account , { cascade: true })
+    loanRequests: LoanRequest[];
 
     @Column({ type: 'timestamp', default: () => 'CURRENT_TIMESTAMP' })
     createdAt: Date;

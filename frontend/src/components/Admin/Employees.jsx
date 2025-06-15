@@ -1,5 +1,6 @@
 // src/components/Admin/Employees.jsx
 
+import axios from "axios";
 import { Edit2, Trash2, X } from "lucide-react";
 import React, { useEffect, useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
@@ -32,100 +33,6 @@ import { useForm } from "react-hook-form";
  */
 
 const Employees = () => {
-  // ---- Dummy data: initial employee list ----
-  const initialEmployees = [
-    {
-      id: 1,
-      fullName: "John Doe",
-      role: "Teller",
-      branch: "Main Branch",
-      contact: "john.doe@example.com",
-      status: "Active",
-      startDate: "2023-01-15",
-    },
-    {
-      id: 2,
-      fullName: "Jane Smith",
-      role: "Manager",
-      branch: "Bole Branch",
-      contact: "jane.smith@example.com",
-      status: "Active",
-      startDate: "2022-11-20",
-    },
-    {
-      id: 3,
-      fullName: "Alice Johnson",
-      role: "Teller",
-      branch: "Gondar Branch",
-      contact: "alice.johnson@example.com",
-      status: "Active",
-      startDate: "2023-03-01",
-    },
-    {
-      id: 4,
-      fullName: "Bob Brown",
-      role: "Admin",
-      branch: "Mekelle Branch",
-      contact: "bob.brown@example.com",
-      status: "Active",
-      startDate: "2021-09-10",
-    },
-    {
-      id: 5,
-      fullName: "Emma Davis",
-      role: "Teller",
-      branch: "Harar Branch",
-      contact: "emma.davis@example.com",
-      status: "Inactive",
-      startDate: "2022-05-05",
-    },
-    {
-      id: 6,
-      fullName: "Michael Lee",
-      role: "Manager",
-      branch: "Awash Bank Branch",
-      contact: "michael.lee@example.com",
-      status: "Active",
-      startDate: "2023-02-25",
-    },
-    {
-      id: 7,
-      fullName: "Sarah Wilson",
-      role: "Teller",
-      branch: "Hawassa Branch",
-      contact: "sarah.wilson@example.com",
-      status: "Active",
-      startDate: "2023-04-10",
-    },
-    {
-      id: 8,
-      fullName: "David Taylor",
-      role: "Teller",
-      branch: "Adama Branch",
-      contact: "david.taylor@example.com",
-      status: "Active",
-      startDate: "2022-08-18",
-    },
-    {
-      id: 9,
-      fullName: "Lisa Anderson",
-      role: "Admin",
-      branch: "Jimma Branch",
-      contact: "lisa.anderson@example.com",
-      status: "Active",
-      startDate: "2021-12-01",
-    },
-    {
-      id: 10,
-      fullName: "Haile G",
-      role: "Manager",
-      branch: "Main Branch",
-      contact: "haile.g@example.com",
-      status: "Inactive",
-      startDate: "2022-07-22",
-    },
-  ];
-
   // ---- State: employee list and UI controls ----
   const [employees, setEmployees] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -153,38 +60,53 @@ const Employees = () => {
     formState: { errors },
   } = useForm();
 
+  // ---- Add a state to hold the list of existing employees for the supervisor dropdown ----
+  const [existingEmployees, setExistingEmployees] = useState([]);
+
   // ---- Load initial dummy data (replace with API later) ----
   useEffect(() => {
     const fetchEmployees = async () => {
       setLoading(true);
       try {
-        // TODO: Replace with API call:
-        // const res = await fetch(
-        //   `/api/admin/employees?page=${currentPage}&pageSize=${itemsPerPage}` +
-        //   `&search=${encodeURIComponent(searchTerm)}` +
-        //   `&role=${filterRole}&branch=${encodeURIComponent(filterBranch)}`
-        // );
-        // const data = await res.json();
-        // setEmployees(data);
-        setEmployees(initialEmployees);
+        const res = await axios.get("http://localhost:8000/api/admin/employee");
+        const data = res.data;
+        if (data.status === "success") {
+          setEmployees(data.data || []);
+        } else {
+          setError("Failed to fetch employees");
+        }
       } catch (err) {
         setError("Failed to fetch employees");
       } finally {
         setLoading(false);
       }
     };
-
     fetchEmployees();
-  }, [currentPage, searchTerm, filterRole, filterBranch]);
+  }, []);
+
+  // Fetch existing employees on component mount
+  useEffect(() => {
+    const fetchExistingEmployees = async () => {
+      try {
+        const response = await axios.get(
+          "http://localhost:8000/api/admin/employee"
+        );
+        setExistingEmployees(response.data.data || []);
+      } catch (error) {
+        console.error("Error fetching existing employees:", error);
+      }
+    };
+    fetchExistingEmployees();
+  }, []);
 
   // ---- Derived: Filtered & Searched Employees ----
   const filteredEmployees = useMemo(() => {
     return employees.filter((emp) => {
       const matchSearch =
         emp.id.toString().includes(searchTerm.toLowerCase()) ||
-        emp.fullName.toLowerCase().includes(searchTerm.toLowerCase());
+        emp.name.toLowerCase().includes(searchTerm.toLowerCase());
 
-      const matchRole = filterRole === "All" || emp.role === filterRole;
+      const matchRole = filterRole === "All" || emp.position === filterRole;
       const matchBranch = filterBranch === "All" || emp.branch === filterBranch;
 
       return matchSearch && matchRole && matchBranch;
@@ -209,27 +131,33 @@ const Employees = () => {
   const openEditForm = (emp) => {
     setEditingEmployee(emp);
     // Pre-fill fields
-    setValue("fullName", emp.fullName);
-    setValue("role", emp.role);
+    setValue("name", emp.name);
+    setValue("position", emp.position);
     setValue("branch", emp.branch);
-    setValue("contact", emp.contact);
-    setValue("status", emp.status);
-    setValue("startDate", emp.startDate);
+    setValue("email", emp.email);
+    setValue("address", emp.address);
+    setValue("phoneNumber", emp.phoneNumber);
+    setValue("salary", emp.salary);
+    setValue("supervisor", emp.supervisor);
+    setValue("dateOfJoining", emp.dateOfJoining);
     setIsFormOpen(true);
   };
 
   // ---- Handle Add/Edit Submission ----
-  const onSubmit = (data) => {
+  const onSubmit = async (data) => {
     if (editingEmployee) {
       // Edit existing employee
       const updated = {
         ...editingEmployee,
-        fullName: data.fullName.trim(),
-        role: data.role,
+        name: data.name.trim(),
+        position: data.position,
         branch: data.branch.trim(),
-        contact: data.contact.trim(),
-        status: data.status,
-        startDate: data.startDate,
+        email: data.email.trim(),
+        address: data.address.trim(),
+        phoneNumber: data.phoneNumber.trim(),
+        salary: Number(data.salary),
+        supervisor: data.supervisor,
+        dateOfJoining: data.dateOfJoining,
       };
       setEmployees((prev) =>
         prev.map((e) => (e.id === updated.id ? updated : e))
@@ -244,25 +172,40 @@ const Employees = () => {
       // });
     } else {
       // Add new employee
-      const nextId =
-        employees.length > 0 ? Math.max(...employees.map((e) => e.id)) + 1 : 1;
       const newEmp = {
-        id: nextId,
-        fullName: data.fullName.trim(),
-        role: data.role,
-        branch: data.branch.trim(),
-        contact: data.contact.trim(),
-        status: data.status,
-        startDate: data.startDate,
+        fullName: data.name.trim(),
+        email: data.email.trim(),
+        phoneNumber: data.phoneNumber.trim(),
+        address: data.address.trim(),
+        position: data.position,
+        salary: Number(data.salary),
+        branchName: data.branch.trim(),
+        supervisorId: data.supervisorId || null, // Ensure supervisorId is included
       };
-      setEmployees((prev) => [...prev, newEmp]);
 
-      // TODO: API call to create:
-      // fetch("/api/admin/employees", {
-      //   method: "POST",
-      //   headers: { "Content-Type": "application/json" },
-      //   body: JSON.stringify(newEmp),
-      // });
+      // Log the full request payload and headers
+      console.log("Submitting to /api/admin/employee:", {
+        data: newEmp,
+        headers: { "Content-Type": "application/json" },
+      });
+
+      try {
+        const response = await axios.post(
+          "http://localhost:8000/api/admin/employee",
+          newEmp,
+          {
+            headers: { "Content-Type": "application/json" },
+          }
+        );
+        if (response.data.status === "success") {
+          const createdEmployee = response.data.data;
+          setEmployees((prev) => [...prev, createdEmployee]);
+        } else {
+          console.error("Failed to create employee:", response.data.message);
+        }
+      } catch (error) {
+        console.error("Error creating employee:", error.response?.data);
+      }
     }
 
     reset();
@@ -271,9 +214,7 @@ const Employees = () => {
 
   // ---- Handle Deactivate Employee ----
   const deactivateEmployee = (emp) => {
-    if (
-      window.confirm(`Are you sure you want to deactivate ${emp.fullName}?`)
-    ) {
+    if (window.confirm(`Are you sure you want to deactivate ${emp.name}?`)) {
       const updated = { ...emp, status: "Inactive" };
       setEmployees((prev) =>
         prev.map((e) => (e.id === updated.id ? updated : e))
@@ -290,7 +231,7 @@ const Employees = () => {
 
   // ---- Unique Roles & Branches for Filter Dropdowns ----
   const uniqueRoles = useMemo(() => {
-    const roles = employees.map((e) => e.role);
+    const roles = employees.map((e) => e.position);
     return ["All", ...Array.from(new Set(roles))];
   }, [employees]);
   const uniqueBranches = useMemo(() => {
@@ -321,7 +262,7 @@ const Employees = () => {
         <h2 className="text-2xl font-bold text-gray-800">Employees</h2>
         <button
           onClick={openAddForm}
-          className="bg-blue-500 text-white px-4 py-2 rounded-md hover:bg-blue-600"
+          className="bg-blue-500 text-white px-4 py-2 rounded-md hover:bg-blue-600 cursor-pointer"
         >
           Add New Employee
         </button>
@@ -386,16 +327,25 @@ const Employees = () => {
                 Full Name
               </th>
               <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">
-                Role
+                Position
               </th>
               <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">
                 Branch
               </th>
               <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">
-                Contact
+                Email
               </th>
               <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">
-                Status
+                Address
+              </th>
+              <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">
+                Phone
+              </th>
+              <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">
+                Salary
+              </th>
+              <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">
+                Supervisor
               </th>
               <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">
                 Start Date
@@ -414,29 +364,38 @@ const Employees = () => {
                 >
                   <td className="px-4 py-3 text-sm text-gray-700">{emp.id}</td>
                   <td className="px-4 py-3 text-sm text-gray-700">
-                    {emp.fullName}
+                    {emp.name}
                   </td>
                   <td className="px-4 py-3 text-sm text-gray-700">
-                    {emp.role}
+                    {emp.position}
                   </td>
                   <td className="px-4 py-3 text-sm text-gray-700">
                     {emp.branch}
                   </td>
                   <td className="px-4 py-3 text-sm text-gray-700">
-                    {emp.contact}
+                    {emp.email}
                   </td>
                   <td className="px-4 py-3 text-sm text-gray-700">
-                    {emp.status}
+                    {emp.address}
                   </td>
                   <td className="px-4 py-3 text-sm text-gray-700">
-                    {emp.startDate}
+                    {emp.phoneNumber}
+                  </td>
+                  <td className="px-4 py-3 text-sm text-gray-700">
+                    {emp.salary}
+                  </td>
+                  <td className="px-4 py-3 text-sm text-gray-700">
+                    {emp.supervisor}
+                  </td>
+                  <td className="px-4 py-3 text-sm text-gray-700">
+                    {emp.dateOfJoining}
                   </td>
                   <td className="px-4 py-3 text-sm text-gray-700 flex space-x-2">
                     {/* Edit Button */}
                     <button
                       onClick={() => openEditForm(emp)}
                       title="Edit Employee"
-                      className="p-1 rounded hover:bg-gray-200"
+                      className="p-1 rounded hover:bg-gray-200 cursor-pointer"
                     >
                       <Edit2 className="w-5 h-5 text-indigo-600" />
                     </button>
@@ -444,7 +403,7 @@ const Employees = () => {
                     <button
                       onClick={() => deactivateEmployee(emp)}
                       title="Deactivate Employee"
-                      className="p-1 rounded hover:bg-gray-200"
+                      className="p-1 rounded hover:bg-gray-200 cursor-pointer"
                     >
                       <Trash2 className="w-5 h-5 text-red-600" />
                     </button>
@@ -454,7 +413,7 @@ const Employees = () => {
             ) : (
               <tr>
                 <td
-                  colSpan={8}
+                  colSpan={11}
                   className="px-4 py-6 text-center text-gray-500 italic"
                 >
                   No employees found.
@@ -485,147 +444,196 @@ const Employees = () => {
       {/* ===== Add/Edit Employee Modal ===== */}
       {isFormOpen && (
         <div
-          className="fixed inset-0 backdrop-blur-md flex items-center justify-center z-50"
+          className="fixed inset-0 backdrop-blur-[2px] bg-transparent flex items-center justify-center z-50"
           onClick={() => {
             setIsFormOpen(false);
             setEditingEmployee(null);
           }}
         >
           <div
-            className="bg-white p-6 rounded-xl shadow-xl max-w-md w-full relative"
+            className="bg-white p-6 rounded-xl shadow-xl max-w-3xl w-full relative"
             onClick={(e) => e.stopPropagation()}
           >
             <h2 className="text-2xl font-bold text-gray-900 mb-4">
               {editingEmployee ? "Edit Employee" : "Add New Employee"}
             </h2>
 
-            {/* React Hook Form */}
-            <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-              {/* Full Name */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700">
-                  Full Name
-                </label>
-                <input
-                  type="text"
-                  {...register("fullName", {
-                    required: "Full Name is required",
-                  })}
-                  className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                  placeholder="e.g. Samuel Bekele"
-                  defaultValue={editingEmployee?.fullName || ""}
-                />
-                {errors.fullName && (
-                  <p className="text-sm text-red-600">
-                    {errors.fullName.message}
-                  </p>
-                )}
+            {/* React Hook Form - Two Column Layout */}
+            <form
+              onSubmit={handleSubmit(onSubmit)}
+              className="grid grid-cols-1 md:grid-cols-2 gap-6"
+            >
+              {/* Left Column */}
+              <div className="flex flex-col gap-4">
+                {/* Full Name */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">
+                    Full Name
+                  </label>
+                  <input
+                    type="text"
+                    {...register("name", { required: "Full Name is required" })}
+                    className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                    placeholder="e.g. Samuel Bekele"
+                    defaultValue={editingEmployee?.name || ""}
+                  />
+                  {errors.name && (
+                    <p className="text-sm text-red-600">
+                      {errors.name.message}
+                    </p>
+                  )}
+                </div>
+                {/* Position */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">
+                    Position
+                  </label>
+                  <select
+                    {...register("position", {
+                      required: "Position is required",
+                    })}
+                    className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                    defaultValue={editingEmployee?.position || "Teller"}
+                  >
+                    <option value="Teller">Teller</option>
+                    <option value="Manager">Manager</option>
+                    <option value="Admin">Admin</option>
+                  </select>
+                  {errors.position && (
+                    <p className="text-sm text-red-600">
+                      {errors.position.message}
+                    </p>
+                  )}
+                </div>
+                {/* Branch */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">
+                    Branch
+                  </label>
+                  <input
+                    type="text"
+                    {...register("branch", { required: "Branch is required" })}
+                    className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                    placeholder="e.g. Main Branch"
+                    defaultValue={editingEmployee?.branch || ""}
+                  />
+                  {errors.branch && (
+                    <p className="text-sm text-red-600">
+                      {errors.branch.message}
+                    </p>
+                  )}
+                </div>
+                {/* Email */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">
+                    Email
+                  </label>
+                  <input
+                    type="text"
+                    {...register("email", { required: "Email is required" })}
+                    className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                    placeholder="e.g. samuel.bekele@example.com"
+                    defaultValue={editingEmployee?.email || ""}
+                  />
+                  {errors.email && (
+                    <p className="text-sm text-red-600">
+                      {errors.email.message}
+                    </p>
+                  )}
+                </div>
               </div>
 
-              {/* Role */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700">
-                  Role/Position
-                </label>
-                <select
-                  {...register("role", { required: "Role is required" })}
-                  className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                  defaultValue={editingEmployee?.role || "Teller"}
-                >
-                  <option value="Teller">Teller</option>
-                  <option value="Manager">Manager</option>
-                  <option value="Admin">Admin</option>
-                </select>
-                {errors.role && (
-                  <p className="text-sm text-red-600">{errors.role.message}</p>
-                )}
+              {/* Right Column */}
+              <div className="flex flex-col gap-4">
+                {/* Address */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">
+                    Address
+                  </label>
+                  <input
+                    type="text"
+                    {...register("address", {
+                      required: "Address is required",
+                    })}
+                    className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                    placeholder="e.g. 123 Main St, Anytown, USA"
+                    defaultValue={editingEmployee?.address || ""}
+                  />
+                  {errors.address && (
+                    <p className="text-sm text-red-600">
+                      {errors.address.message}
+                    </p>
+                  )}
+                </div>
+                {/* Phone */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">
+                    Phone
+                  </label>
+                  <input
+                    type="text"
+                    {...register("phoneNumber", {
+                      required: "Phone is required",
+                    })}
+                    className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                    placeholder="e.g. 555-1234-5678"
+                    defaultValue={editingEmployee?.phoneNumber || ""}
+                  />
+                  {errors.phoneNumber && (
+                    <p className="text-sm text-red-600">
+                      {errors.phoneNumber.message}
+                    </p>
+                  )}
+                </div>
+                {/* Salary */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">
+                    Salary
+                  </label>
+                  <input
+                    type="number"
+                    {...register("salary", { required: "Salary is required" })}
+                    className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                    placeholder="e.g. 50000"
+                    defaultValue={editingEmployee?.salary || ""}
+                  />
+                  {errors.salary && (
+                    <p className="text-sm text-red-600">
+                      {errors.salary.message}
+                    </p>
+                  )}
+                </div>
+                {/* Supervisor */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">
+                    Supervisor
+                  </label>
+                  <select
+                    {...register("supervisorId", {
+                      required: "Supervisor is required",
+                    })}
+                    className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                  >
+                    <option value="">Select a Supervisor</option>
+                    {existingEmployees.map((emp) => (
+                      <option key={emp.id} value={emp.id}>
+                        {emp.name}
+                      </option>
+                    ))}
+                  </select>
+                  {errors.supervisorId && (
+                    <p className="text-sm text-red-600">
+                      {errors.supervisorId.message}
+                    </p>
+                  )}
+                </div>
               </div>
 
-              {/* Branch */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700">
-                  Branch
-                </label>
-                <input
-                  type="text"
-                  {...register("branch", { required: "Branch is required" })}
-                  className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                  placeholder="e.g. Main Branch"
-                  defaultValue={editingEmployee?.branch || ""}
-                />
-                {errors.branch && (
-                  <p className="text-sm text-red-600">
-                    {errors.branch.message}
-                  </p>
-                )}
-              </div>
-
-              {/* Contact */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700">
-                  Contact (Email or Phone)
-                </label>
-                <input
-                  type="text"
-                  {...register("contact", {
-                    required: "Contact info is required",
-                  })}
-                  className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                  placeholder="e.g. samuel.bekele@example.com"
-                  defaultValue={editingEmployee?.contact || ""}
-                />
-                {errors.contact && (
-                  <p className="text-sm text-red-600">
-                    {errors.contact.message}
-                  </p>
-                )}
-              </div>
-
-              {/* Status */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700">
-                  Status
-                </label>
-                <select
-                  {...register("status", { required: "Status is required" })}
-                  className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                  defaultValue={editingEmployee?.status || "Active"}
-                >
-                  <option value="Active">Active</option>
-                  <option value="Inactive">Inactive</option>
-                </select>
-                {errors.status && (
-                  <p className="text-sm text-red-600">
-                    {errors.status.message}
-                  </p>
-                )}
-              </div>
-
-              {/* Start Date */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700">
-                  Start Date
-                </label>
-                <input
-                  type="date"
-                  {...register("startDate", {
-                    required: "Start date is required",
-                  })}
-                  className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                  defaultValue={editingEmployee?.startDate || ""}
-                />
-                {errors.startDate && (
-                  <p className="text-sm text-red-600">
-                    {errors.startDate.message}
-                  </p>
-                )}
-              </div>
-
-              {/* Submit Button */}
-              <div className="flex justify-end pt-4">
+              {/* Submit Button (spans both columns) */}
+              <div className="md:col-span-2 flex justify-end pt-4">
                 <button
                   type="submit"
-                  className="bg-green-500 text-white px-5 py-2 rounded-md hover:bg-green-600"
+                  className="bg-green-500 text-white px-5 py-2 rounded-md hover:bg-green-600 cursor-pointer"
                 >
                   {editingEmployee ? "Save Changes" : "Add Employee"}
                 </button>
@@ -638,7 +646,7 @@ const Employees = () => {
                 setIsFormOpen(false);
                 setEditingEmployee(null);
               }}
-              className="absolute top-4 right-4 text-gray-500 hover:text-gray-700"
+              className="absolute top-4 right-4 text-gray-500 hover:text-gray-700 cursor-pointer"
             >
               <X className="w-6 h-6" />
             </button>

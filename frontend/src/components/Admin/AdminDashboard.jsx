@@ -1,5 +1,6 @@
 // src/components/Admin/AdminDashboard.jsx
 
+import axios from "axios";
 import { Bell } from "lucide-react";
 import React, { useEffect, useState } from "react";
 import {
@@ -32,6 +33,9 @@ import {
  */
 
 const AdminDashboard = () => {
+  // === State: Loading ===
+  const [loading, setLoading] = useState(true);
+
   // === State: Summary Stats ===
   const [dashboardStats, setDashboardStats] = useState({
     totalAccounts: 0,
@@ -66,104 +70,49 @@ const AdminDashboard = () => {
   const [lastUpdated, setLastUpdated] = useState("");
 
   useEffect(() => {
-    // ===== Dummy Summary Data =====
-    setDashboardStats({
-      totalAccounts: 1250,
-      totalCustomers: 980,
-      totalTransactions: 4325,
-      totalLoansIssued: 310,
-    });
+    const fetchDashboardData = async () => {
+      setLoading(true);
+      try {
+        const response = await axios.get(
+          "http://localhost:8000/api/admin/dashboard"
+        );
+        if (response.data.status === "success") {
+          const data = response.data.data;
+          setDashboardStats({
+            totalAccounts: data.totalAccounts,
+            totalCustomers: data.totalCustomers,
+            totalTransactions: data.totalTransactions,
+            totalLoansIssued: data.totalBranches, // Adjust if needed
+          });
+          setKeyMetrics({
+            totalDeposits: data.totalDeposits,
+            totalWithdrawals: data.totalWithdrawals,
+            activeAccounts: data.activeAccounts || 0, // fallback if not present
+            closedAccounts: data.closedAccounts || 0, // fallback if not present
+          });
+          // If you have charts or alerts, set them here as well if present in the response
+        } else {
+          console.error("Failed to fetch dashboard data");
+        }
+      } catch (err) {
+        console.error("Error fetching dashboard data:", err);
+      } finally {
+        setLoading(false);
+      }
+    };
 
-    // ===== Dummy Key Metrics =====
-    setKeyMetrics({
-      totalDeposits: 1_250_000,
-      totalWithdrawals: 950_000,
-      activeAccounts: 1100,
-      closedAccounts: 150,
-    });
-
-    // ===== Dummy Monthly Transactions Data =====
-    setMonthlyTransactions([
-      { month: "Jan", volume: 400 },
-      { month: "Feb", volume: 380 },
-      { month: "Mar", volume: 450 },
-      { month: "Apr", volume: 500 },
-      { month: "May", volume: 480 },
-      { month: "Jun", volume: 520 },
-      { month: "Jul", volume: 530 },
-      { month: "Aug", volume: 600 },
-      { month: "Sep", volume: 580 },
-      { month: "Oct", volume: 620 },
-      { month: "Nov", volume: 640 },
-      { month: "Dec", volume: 700 },
-    ]);
-
-    // ===== Dummy Account Type Distribution =====
-    setAccountTypeDistribution([
-      { name: "Savings", value: 800 },
-      { name: "Checking", value: 450 },
-    ]);
-
-    // ===== Dummy Alerts & Notification Counts =====
-    setAlerts({
-      lowBalanceCount: 18,
-      overdueLoansCount: 7,
-    });
-
-    // ===== Dummy Notifications List =====
-    setNotifications([
-      { id: 1, message: "Loan L123 approved for user John Doe." },
-      { id: 2, message: "Account ACC1007 balance below threshold." },
-      { id: 3, message: "New customer registration: Jane Smith." },
-      { id: 4, message: "Loan L124 pending approval." },
-    ]);
-
-    // ===== Last Updated Timestamp =====
-    const now = new Date();
-    const formatted = now.toLocaleString("en-ET", {
-      year: "numeric",
-      month: "long",
-      day: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-    });
-    setLastUpdated(formatted);
-
-    // ===== Example API Calls (Commented) =====
-    // fetch("/api/dashboard/stats")
-    //   .then((res) => res.json())
-    //   .then((data) =>
-    //     setDashboardStats({
-    //       totalAccounts: data.accountsCount,
-    //       totalCustomers: data.customersCount,
-    //       totalTransactions: data.transactionsCount,
-    //       totalLoansIssued: data.loansCount,
-    //     })
-    //   );
-    //
-    // fetch("/api/dashboard/key-metrics")
-    //   .then((res) => res.json())
-    //   .then((data) =>
-    //     setKeyMetrics({
-    //       totalDeposits: data.deposits,
-    //       totalWithdrawals: data.withdrawals,
-    //       activeAccounts: data.activeAccounts,
-    //       closedAccounts: data.closedAccounts,
-    //     })
-    //   );
-    //
-    // fetch("/api/dashboard/monthly-transactions")
-    //   .then((res) => res.json())
-    //   .then((data) => setMonthlyTransactions(data));
-    //
-    // fetch("/api/dashboard/account-distribution")
-    //   .then((res) => res.json())
-    //   .then((data) => setAccountTypeDistribution(data));
-    //
-    // fetch("/api/notifications")
-    //   .then((res) => res.json())
-    //   .then((data) => setNotifications(data));
+    fetchDashboardData();
   }, []);
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-xl font-semibold text-gray-600">
+          Loading dashboard...
+        </div>
+      </div>
+    );
+  }
 
   // Toggle notifications dropdown visibility
   const toggleNotifications = () => {
@@ -226,7 +175,7 @@ const AdminDashboard = () => {
             Total Accounts
           </h3>
           <p className="mt-2 text-3xl font-bold text-blue-800">
-            {dashboardStats.totalAccounts.toLocaleString()}
+            {(dashboardStats?.totalAccounts ?? 0).toLocaleString()}
           </p>
         </div>
 
@@ -236,7 +185,7 @@ const AdminDashboard = () => {
             Total Customers
           </h3>
           <p className="mt-2 text-3xl font-bold text-green-800">
-            {dashboardStats.totalCustomers.toLocaleString()}
+            {(dashboardStats?.totalCustomers ?? 0).toLocaleString()}
           </p>
         </div>
 
@@ -246,7 +195,7 @@ const AdminDashboard = () => {
             Total Transactions
           </h3>
           <p className="mt-2 text-3xl font-bold text-purple-800">
-            {dashboardStats.totalTransactions.toLocaleString()}
+            {(dashboardStats?.totalTransactions ?? 0).toLocaleString()}
           </p>
         </div>
 
@@ -256,7 +205,7 @@ const AdminDashboard = () => {
             Total Loans Issued
           </h3>
           <p className="mt-2 text-3xl font-bold text-red-800">
-            {dashboardStats.totalLoansIssued.toLocaleString()}
+            {(dashboardStats?.totalLoansIssued ?? 0).toLocaleString()}
           </p>
         </div>
       </div>
@@ -267,7 +216,7 @@ const AdminDashboard = () => {
         <div className="bg-white p-5 rounded-lg shadow-sm">
           <h4 className="text-md font-medium text-gray-600">Total Deposits</h4>
           <p className="mt-1 text-2xl font-semibold text-green-700">
-            {`ETB ${keyMetrics.totalDeposits.toLocaleString()}`}
+            {`ETB ${(keyMetrics?.totalDeposits ?? 0).toLocaleString()}`}
           </p>
         </div>
         {/* Total Withdrawals */}
@@ -276,21 +225,21 @@ const AdminDashboard = () => {
             Total Withdrawals
           </h4>
           <p className="mt-1 text-2xl font-semibold text-red-700">
-            {`ETB ${keyMetrics.totalWithdrawals.toLocaleString()}`}
+            {`ETB ${(keyMetrics?.totalWithdrawals ?? 0).toLocaleString()}`}
           </p>
         </div>
         {/* Active Accounts */}
         <div className="bg-white p-5 rounded-lg shadow-sm">
           <h4 className="text-md font-medium text-gray-600">Active Accounts</h4>
           <p className="mt-1 text-2xl font-semibold text-blue-700">
-            {keyMetrics.activeAccounts.toLocaleString()}
+            {(keyMetrics?.activeAccounts ?? 0).toLocaleString()}
           </p>
         </div>
         {/* Closed Accounts */}
         <div className="bg-white p-5 rounded-lg shadow-sm">
           <h4 className="text-md font-medium text-gray-600">Closed Accounts</h4>
           <p className="mt-1 text-2xl font-semibold text-gray-700">
-            {keyMetrics.closedAccounts.toLocaleString()}
+            {(keyMetrics?.closedAccounts ?? 0).toLocaleString()}
           </p>
         </div>
       </div>
@@ -364,7 +313,7 @@ const AdminDashboard = () => {
               Low‐Balance Accounts
             </p>
             <p className="text-2xl font-bold text-yellow-800">
-              {alerts.lowBalanceCount}
+              {alerts?.lowBalanceCount ?? 0}
             </p>
           </div>
         </div>
@@ -376,7 +325,7 @@ const AdminDashboard = () => {
           <div>
             <p className="text-lg font-medium text-gray-700">Overdue Loans</p>
             <p className="text-2xl font-bold text-red-800">
-              {alerts.overdueLoansCount}
+              {alerts?.overdueLoansCount ?? 0}
             </p>
           </div>
         </div>
@@ -399,4 +348,3 @@ export default AdminDashboard;
 // Make sure to install the necessary packages:
 // npm install recharts lucide-react
 // Tailwind CSS is assumed to be set up in your project for styling.
-

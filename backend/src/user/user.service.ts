@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable, NotAcceptableException, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Inject, Injectable, NotAcceptableException, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Account } from 'src/core/entities/account.entity';
 import { Customer } from 'src/core/entities/customer.entity';
@@ -7,6 +7,8 @@ import { WithdrawDto } from './dto/withdrawdto';
 import { Branch } from 'src/core/entities/branch.entity';
 import { Transaction } from 'src/core/entities/transaction.entity';
 import { TransferDto } from './dto/transferdto';
+import { LoanRequestDto } from './dto/loanRequestdto';
+import { LoanRequest } from 'src/core/entities/loanRequest.entity';
 @Injectable()
 export class UserService {
     
@@ -15,6 +17,7 @@ export class UserService {
         @InjectRepository(Customer) private readonly customerRepository: Repository<Customer>,
         @InjectRepository(Branch) private readonly branchRepository: Repository<Branch>,
         @InjectRepository(Transaction) private readonly transactionRepository: Repository<Transaction>,
+        @InjectRepository(LoanRequest) private readonly loanRequestRepository: Repository<LoanRequest>,
     ) {}
 
     async getUserDetails(customerId: string) {
@@ -95,7 +98,7 @@ export class UserService {
             amount,
             type: 'withdrawal',
             direction: "debit",
-            date: new Date(),
+            createdAt: new Date(),
             notes: `withdrawal of ${amount} from account ${accountNumber}`
         });
         await this.transactionRepository.save(newTransaction);
@@ -164,7 +167,7 @@ export class UserService {
             amount,
             type: 'transfer',
             direction: 'debit',
-            date: new Date(),
+            createdAt: new Date(),
             transactionGroupId: groupTransactionId,
             notes: transferDto.notes,
         });
@@ -175,7 +178,7 @@ export class UserService {
             amount,
             type: 'transfer',
             direction: 'credit',
-            date: new Date(),
+            createdAt: new Date(),
             transactionGroupId: groupTransactionId,
             notes: transferDto.notes,
         });
@@ -212,7 +215,7 @@ export class UserService {
         }
         const transactions = await this.transactionRepository.find({
             where: { account: { accountNumber: account.accountNumber } },
-            order: { date: 'DESC' }, // Order by date, most recent first
+            order: { createdAt: 'DESC' }, // Order by createdAt, most recent first
             relations: ['account'],
         });
         if (!transactions || transactions.length === 0) {
@@ -224,7 +227,7 @@ export class UserService {
             amount: tx.amount,
             type: tx.type,
             direction: tx.direction,
-            date: tx.date,
+            createdAt: tx.createdAt,
             notes: tx.notes,
         }));
 
@@ -232,6 +235,113 @@ export class UserService {
             status: 'success',
             data: mappedTransactions,
             message: 'User transactions retrieved successfully',
+        };
+    }
+    async requestLoan(loanRequestDto: LoanRequestDto) {
+        const { accountNumber, amount, purpose } = loanRequestDto;
+
+        if (amount <= 0) {
+            throw new BadRequestException('Loan amount must be greater than zero');
+        }
+
+        const account = await this.accountRepository.findOne({
+            where: { accountNumber },
+        });
+
+        if (!account) {
+            throw new NotFoundException('Account not found');
+        }
+
+        // Check if the account is eligible for a loan
+        if (account.balance < amount * 0.1) { // Example condition: balance must be at least 10% of the loan amount
+            throw new NotAcceptableException('Insufficient balance to request a loan');
+        }
+
+        // save to the db
+        const loanRequest = this.loanRequestRepository.create({
+            ...loanRequestDto,
+            account: account,
+        });
+        await this.loanRequestRepository.save(loanRequest);
+        return {
+            status: 'success',
+            data: {
+                accountNumber: account.accountNumber,
+                requestedAmount: amount,
+                purpose,
+            },
+            message: 'Loan request submitted successfully',
+        };
+        
+    }
+    async getUserLoanRequests(customerId: string, accountNumber: string) {
+        const customer = await this.customerRepository.findOne({
+            where: { id: customerId },
+            relations: ['accounts'],
+        });
+
+        if (!customer) {
+            throw new NotFoundException('Customer not found');
+        }
+
+        const loanRequests = await this.loanRequestRepository.find({
+            where: { account: { accountNumber } },
+            order: { requestedAt: 'DESC' }, 
+            relations: ['account'],
+        });
+
+        if (!loanRequests || loanRequests.length === 0) {
+            throw new NotFoundException('No loan requests found for this customer');
+        }
+
+        return {
+            status: 'success',
+            data: loanRequests.map(request => ({
+                accountNumber: request.account.accountNumber,
+                requestedAmount: request.amount,
+                purpose: request.purpose,
+                status: request.status,
+                branch: request.account.branch.branchName,
+                requestedAt: request.requestedAt,
+            })),
+            message: 'Loan requests retrieved successfully',
+        };
+    }
+    async getUserLoans(customerId: string) {
+        const customer = await this.customerRepository.findOne({
+            where: { id: customerId },
+            relations: ['accounts'],
+        });
+
+        if (!customer) {
+            throw new NotFoundException('Customer not found');
+        }
+
+        const accounts = customer.accounts;
+        if (!accounts || accounts.length === 0) {
+            throw new NotFoundException('No accounts found for this customer');
+        }
+
+        const loans = await this.loanRequestRepository.find({
+            where: { account: { customer: { id: customerId } } },
+            relations: ['account'],
+        });
+
+        if (!loans || loans.length === 0) {
+            throw new NotFoundException('No loans found for this customer');
+        }
+
+        return {
+            status: 'success',
+            data: loans.map(loan => ({
+                accountNumber: loan.account.accountNumber,
+                requestedAmount: loan.amount,
+                purpose: loan.purpose,
+                status: loan.status,
+                branch: loan.account.branch.branchName,
+                requestedAt: loan.requestedAt,
+            })),
+            message: 'User loans retrieved successfully',
         };
     }
 }

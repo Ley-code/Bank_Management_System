@@ -1,9 +1,10 @@
-import { Inject, Injectable, InternalServerErrorException } from '@nestjs/common';
+import { Inject, Injectable, InternalServerErrorException, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { create } from 'domain';
 import { Branch } from 'src/core/entities/branch.entity';
 import { Repository } from 'typeorm';
 import { CreateBranchDto } from './dto/createbranchdto';
+import { UpdateBranchDto } from './dto/updatebranchdto';
 
 @Injectable()
 export class BranchService {
@@ -52,6 +53,35 @@ export class BranchService {
             status: 'success',
             data: branch,
             message: 'Branch retrieved successfully',
+        };
+    }
+
+    async deleteBranch(branchName: string) {
+        const branch = await this.branchRepository.findOne({
+            where: { branchName: branchName },
+        });
+        if (!branch) {
+            throw new NotFoundException('Branch not found');
+        }
+        await this.branchRepository.remove(branch);
+        return {
+            status: 'success',
+            message: 'Branch deleted successfully',
+        };
+    }
+    async updateBranch(branchName: string, updateBranchDto: UpdateBranchDto) {
+        const branch = await this.branchRepository.findOne({
+            where: { branchName: branchName },
+        });
+        if (!branch) {
+            throw new NotFoundException('Branch not found');
+        }
+        const updatedBranch = Object.assign(branch, {...updateBranchDto, updatedAt: new Date()});
+        await this.branchRepository.update(branch.branchName, updatedBranch);
+        return {
+            status: 'success',
+            data: updatedBranch,
+            message: 'Branch updated successfully',
         };
     }
 }

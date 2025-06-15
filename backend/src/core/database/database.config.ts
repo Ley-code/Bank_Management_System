@@ -9,6 +9,7 @@ import { Transaction } from '../entities/transaction.entity';
 import { Loan } from '../entities/loan.entity';
 import { Payment } from '../entities/payment.entity';
 import { Employee } from '../entities/employee.entity';
+import { LoanRequest } from '../entities/loanRequest.entity';
 export default registerAs('database', (): TypeOrmModuleOptions => {
   return {
     type: 'postgres',
@@ -25,6 +26,7 @@ export default registerAs('database', (): TypeOrmModuleOptions => {
       Loan,
       Payment,
       Employee,
+      LoanRequest
 
     ],
     synchronize: true,

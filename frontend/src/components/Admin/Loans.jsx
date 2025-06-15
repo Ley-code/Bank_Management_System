@@ -1,5 +1,6 @@
 // src/components/Admin/Loans.jsx
 
+import axios from "axios";
 import React, { useEffect, useMemo, useState } from "react";
 
 /**
@@ -22,82 +23,9 @@ import React, { useEffect, useMemo, useState } from "react";
  */
 
 const Loans = () => {
-  // ---- Dummy data for loan applications ----
-  const initialLoanApplications = [
-    {
-      id: 1,
-      loanNumber: "L001",
-      username: "john_doe",
-      amount: 5000,
-      startDate: "2023-01-01",
-      endDate: "2023-12-31",
-      interestRate: 5.0, // percentage
-      branchName: "Main Branch",
-    },
-    {
-      id: 2,
-      loanNumber: "L002",
-      username: "jane_smith",
-      amount: 10000,
-      startDate: "2023-02-01",
-      endDate: "2023-11-30",
-      interestRate: 4.5,
-      branchName: "Bole Branch",
-    },
-    {
-      id: 3,
-      loanNumber: "L003",
-      username: "alice_brown",
-      amount: 1500,
-      startDate: "2023-03-01",
-      endDate: "2023-10-31",
-      interestRate: 6.0,
-      branchName: "Mekelle Branch",
-    },
-  ];
-
-  // ---- Dummy data for accepted loans ----
-  const initialAcceptedLoans = [
-    {
-      id: 4,
-      loanNumber: "L004",
-      username: "bob_wilson",
-      amount: 2500,
-      startDate: "2023-04-01",
-      endDate: "2023-09-30",
-      status: "pending",
-      interestRate: 5.5,
-      branchName: "Bahir Dar Branch",
-    },
-    {
-      id: 5,
-      loanNumber: "L005",
-      username: "emma_davis",
-      amount: 3000,
-      startDate: "2023-05-01",
-      endDate: "2023-08-31",
-      status: "completed",
-      interestRate: 4.0,
-      branchName: "Gondar Branch",
-    },
-    {
-      id: 6,
-      loanNumber: "L006",
-      username: "mike_jones",
-      amount: 1800,
-      startDate: "2023-06-01",
-      endDate: "2023-07-15",
-      status: "missed deadline",
-      interestRate: 6.5,
-      branchName: "Jimma Branch",
-    },
-  ];
-
   // ---- State: loan lists and UI controls ----
-  const [loanApplications, setLoanApplications] = useState(
-    initialLoanApplications
-  );
-  const [acceptedLoans, setAcceptedLoans] = useState(initialAcceptedLoans);
+  const [loanApplications, setLoanApplications] = useState([]);
+  const [acceptedLoans, setAcceptedLoans] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
@@ -105,19 +33,21 @@ const Loans = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [filterStatus, setFilterStatus] = useState("All"); // For accepted loans
 
-  // ---- Fetch data effect (dummy now) ----
+  // ---- Fetch data effect ----
   useEffect(() => {
     const fetchData = async () => {
       setLoading(true);
       try {
-        // TODO: Replace with API call to fetch pending loan applications
-        // const resApps = await fetch("/api/admin/loans/applications");
-        // const appsData = await resApps.json();
-        // setLoanApplications(appsData);
-        // TODO: Replace with API call to fetch accepted loans
-        // const resAccepted = await fetch("/api/admin/loans/accepted");
-        // const acceptedData = await resAccepted.json();
-        // setAcceptedLoans(acceptedData);
+        const response = await axios.get(
+          "http://localhost:8000/api/admin/loans"
+        );
+        if (response.data.status === "success") {
+          // Assuming the API returns both applications and accepted loans
+          setLoanApplications(response.data.data.applications || []);
+          setAcceptedLoans(response.data.data.accepted || []);
+        } else {
+          setError("Failed to fetch loan data");
+        }
       } catch (err) {
         setError("Failed to fetch loan data");
       } finally {
@@ -125,8 +55,7 @@ const Loans = () => {
       }
     };
 
-    // Uncomment when backend is ready
-    // fetchData();
+    fetchData();
   }, []);
 
   // ---- Handle accepting a loan application ----
