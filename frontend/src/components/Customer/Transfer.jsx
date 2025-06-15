@@ -21,7 +21,7 @@ const Transfer = () => {
   useEffect(() => {
     const fetchAccounts = async () => {
       try {
-        const customerId = "35194d9c-c9c3-4b97-b7c8-f139f7a929e2"; // Use the same customer ID as Dashboard
+        const customerId = "d799ac61-ce27-41c3-8783-4da193564046"; // Use the same customer ID as Dashboard
         
         // Fetch user accounts
         const accountsResponse = await fetch(`http://localhost:8000/api/user/${customerId}/accounts`);
@@ -69,7 +69,7 @@ const Transfer = () => {
     setMessage({ type: '', text: '' });
 
     try {
-      const response = await fetch('http://localhost:8000/api/transactions/transfer', {
+      const response = await fetch('http://localhost:8000/api/user/transfer', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -78,8 +78,7 @@ const Transfer = () => {
           fromAccountNumber: formData.fromAccount,
           toAccountNumber: formData.toAccount,
           amount: parseFloat(formData.amount),
-          description: formData.description,
-          transferType: formData.transferType
+          notes: formData.description,
         }),
       });
 

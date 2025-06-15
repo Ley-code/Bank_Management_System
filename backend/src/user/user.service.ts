@@ -237,25 +237,19 @@ export class UserService {
             message: 'User transactions retrieved successfully',
         };
     }
-    async requestLoan(customerId: string, loanRequestDto: LoanRequestDto) {
+    async requestLoan(loanRequestDto: LoanRequestDto) {
         const { accountNumber, amount, purpose } = loanRequestDto;
 
         if (amount <= 0) {
             throw new BadRequestException('Loan amount must be greater than zero');
         }
 
-        const customer = await this.customerRepository.findOne({
-            where: { id: customerId },
-            relations: ['accounts'],
+        const account = await this.accountRepository.findOne({
+            where: { accountNumber },
         });
 
-        if (!customer) {
-            throw new NotFoundException('Customer not found');
-        }
-
-        const account = customer.accounts.find(acc => acc.accountNumber === accountNumber);
         if (!account) {
-            throw new NotFoundException('Account not found for this customer');
+            throw new NotFoundException('Account not found');
         }
 
         // Check if the account is eligible for a loan
@@ -311,6 +305,43 @@ export class UserService {
                 requestedAt: request.requestedAt,
             })),
             message: 'Loan requests retrieved successfully',
+        };
+    }
+    async getUserLoans(customerId: string) {
+        const customer = await this.customerRepository.findOne({
+            where: { id: customerId },
+            relations: ['accounts'],
+        });
+
+        if (!customer) {
+            throw new NotFoundException('Customer not found');
+        }
+
+        const accounts = customer.accounts;
+        if (!accounts || accounts.length === 0) {
+            throw new NotFoundException('No accounts found for this customer');
+        }
+
+        const loans = await this.loanRequestRepository.find({
+            where: { account: { customer: { id: customerId } } },
+            relations: ['account'],
+        });
+
+        if (!loans || loans.length === 0) {
+            throw new NotFoundException('No loans found for this customer');
+        }
+
+        return {
+            status: 'success',
+            data: loans.map(loan => ({
+                accountNumber: loan.account.accountNumber,
+                requestedAmount: loan.amount,
+                purpose: loan.purpose,
+                status: loan.status,
+                branch: loan.account.branch.branchName,
+                requestedAt: loan.requestedAt,
+            })),
+            message: 'User loans retrieved successfully',
         };
     }
 }
