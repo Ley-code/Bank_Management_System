@@ -19,7 +19,7 @@ const Dashboard = () => {
       try {
         // Use the actual user ID from your working API
         // const customerId = "35194d9c-c9c3-4b97-b7c8-f139f7a929e2";
-        const customerId = "d799ac61-ce27-41c3-8783-4da193564046"
+        const customerId = "62a2645c-5367-4734-85dc-c2ac2dbbde2f"
   
         // Fetch user details
         const detailsResponse = await fetch(`http://localhost:8000/api/user/${customerId}/details`);

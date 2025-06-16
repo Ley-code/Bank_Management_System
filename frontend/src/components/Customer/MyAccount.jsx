@@ -11,7 +11,7 @@ const MyAccount = () => {
   // State for loading and error
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const customerId = "d799ac61-ce27-41c3-8783-4da193564046"
+  const customerId = "62a2645c-5367-4734-85dc-c2ac2dbbde2f"
 
   // Fetch accounts data when component mounts
   useEffect(() => {
