@@ -5,6 +5,7 @@ import { Transaction } from 'src/core/entities/transaction.entity';
 import { Account } from 'src/core/entities/account.entity';
 import { Branch } from 'src/core/entities/branch.entity';
 import { DepositDto } from './accounts/dto/depositdto';
+import { AppNotification, NotificationType } from 'src/core/entities/notification.entity';
 @Injectable()
 export class AdminService {
     
@@ -12,6 +13,7 @@ export class AdminService {
         @InjectRepository(Transaction) private readonly transactionRepository: Repository<Transaction>,
         @InjectRepository(Account) private readonly accountRepository: Repository<Account>,
         @InjectRepository(Branch) private readonly branchRepository: Repository<Branch>,
+        @InjectRepository(AppNotification) private readonly notificationRepository: Repository<AppNotification>,
     ) {}
 
     async getAllTransactions() {
@@ -19,8 +21,12 @@ export class AdminService {
             relations: ['account', 'account.branch', 'account.customer'],
         });
 
-        if (!transactions || transactions.length === 0) {
-            throw new NotFoundException('No transactions found');
+        if (!transactions) {
+            return {
+                status: 'error',
+                message: 'No transactions found',
+                data: [],
+            };
         }
 
         return {
@@ -29,8 +35,9 @@ export class AdminService {
                 id: transaction.id,
                 amount: transaction.amount,
                 type: transaction.type,
+                currency: transaction.account.currencyCode,
                 accountNumber: transaction.account.accountNumber,
-                transactionDate: transaction.createdAt.toISOString(),
+                transactionDate: transaction.createdAt.toISOString().split('T')[0], // Format date to YYYY-MM-DD
                 transactionDirection: transaction.direction,
                 transactionGroupid: transaction.transactionGroupId,
                 notes: transaction.notes,   
@@ -50,6 +57,7 @@ export class AdminService {
         }
         const account = await this.accountRepository.findOne({
             where: { accountNumber: accountNumber },
+            relations: ['branch', 'customer'],
         });
         if (!account) {
             throw new NotFoundException('Account not found');
@@ -85,7 +93,13 @@ export class AdminService {
         });
 
         await this.transactionRepository.save(transaction);
-
+        const notification = this.notificationRepository.create({
+            customer: account.customer,
+            createdAt: new Date(),
+            message: `Deposit of ${amount} to your account ${accountNumber} was successful.`,
+            type: NotificationType.TRANSACTION,
+            isRead: false,
+        });
         return {
             status: 'success',
             data: {

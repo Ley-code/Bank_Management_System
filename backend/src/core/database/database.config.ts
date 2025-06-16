@@ -13,7 +13,6 @@ import { LoanRequest } from '../entities/loanRequest.entity';
 export default registerAs('database', (): TypeOrmModuleOptions => {
   return {
     type: 'postgres',
-    host: process.env.DATABASE_HOST,
     port: parseInt(process.env.DATABASE_PORT || '5432'),
     username: process.env.DATABASE_USER,
     password: process.env.DATABASE_PASSWORD,

@@ -16,10 +16,11 @@ export class BusinessLogicService {
     const numerator = principal * monthlyRate * Math.pow(1 + monthlyRate, months);
     const denominator = Math.pow(1 + monthlyRate, months) - 1;
 
-    return +(numerator / denominator).toFixed(2);
+    return Math.round(numerator / denominator);
   }
 
   calculateTotalPayable(monthlyPayment: number, months: number): number {
-    return +(monthlyPayment * months).toFixed(2);
+    return Math.round(monthlyPayment * months);
   }
+  
 }

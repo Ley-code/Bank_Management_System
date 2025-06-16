@@ -103,11 +103,7 @@ export class EmployeeService {
           where: { id: createEmployeeDto.supervisorId },
         })) || undefined;
     }
-    console.log('Branch:', branch);
-    console.log(
-      '-----------------------------------------------------------------------',
-    );
-    console.log('Supervisor:', supervisor);
+
     // Create the employee and associate it with the branch and supervisor
     const employee = this.employeeRepository.create({
       ...createEmployeeDto,
