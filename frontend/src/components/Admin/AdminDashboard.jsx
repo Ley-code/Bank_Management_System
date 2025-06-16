@@ -102,14 +102,21 @@ const AdminDashboard = () => {
     };
 
     fetchDashboardData();
+
+    // Listen for admin-data-updated event to refresh dashboard
+    const handleAdminDataUpdated = () => {
+      fetchDashboardData();
+    };
+    window.addEventListener("admin-data-updated", handleAdminDataUpdated);
+    return () => {
+      window.removeEventListener("admin-data-updated", handleAdminDataUpdated);
+    };
   }, []);
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="text-xl font-semibold text-gray-600">
-          Loading dashboard...
-        </div>
+      <div className="flex justify-center items-center h-64">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
       </div>
     );
   }
