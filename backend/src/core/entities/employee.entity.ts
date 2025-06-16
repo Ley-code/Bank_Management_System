@@ -1,5 +1,6 @@
 import { Column, Entity, ManyToOne, PrimaryGeneratedColumn } from "typeorm";
 import { Branch } from "./branch.entity";
+import { Department } from "./department.entity";
 
 @Entity()
 export class Employee {
@@ -29,6 +30,9 @@ export class Employee {
 
     @ManyToOne(() => Branch, (branch) => branch.employees, { onDelete: 'SET NULL' })
     branch: Branch; // Reference to the branch where the employee works
+
+    @ManyToOne(() => Department, (department) => department.employees, { onDelete: 'SET NULL' })
+    department: Department;
     
     @Column({ type: 'timestamp', default: () => 'CURRENT_TIMESTAMP' })
     createdAt: Date;

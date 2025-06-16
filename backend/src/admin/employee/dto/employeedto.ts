@@ -32,4 +32,8 @@ export class CreateEmployeeDto {
     @IsOptional()
     @IsUUID()
     supervisorId?: string;
+
+    @IsNotEmpty()
+    @IsString()
+    departmentName: string;
 }
