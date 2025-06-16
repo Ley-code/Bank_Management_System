@@ -19,7 +19,7 @@ export class LoanService {
         private readonly loanRepository: Repository<Loan>,
         @InjectRepository(Payment)
         private readonly paymentRepository: Repository<Payment>,
-        private readonly businessService: BusinessLogicService, // Assuming you have a BusinessService to handle business logic
+        private readonly businessService: BusinessLogicService, 
 
     ) { }
     async acceptLoanRequest({ loanRequestId, loanDurationInMonths }: AcceptLoanRequestDto) {
@@ -41,8 +41,8 @@ export class LoanService {
         const issuedAt = new Date();
         const dueDate = addMonths(issuedAt, loanDurationInMonths);
 
-        const interestRate = 0.07; // TODO: Replace with dynamic rate if needed
-        const annualRate = 7; // TODO: Replace with dynamic rate if needed
+        const interestRate = 0.07;
+        const annualRate = 7; 
         const monthlyPayment = this.businessService.calculateMonthlyPayment(loanRequest.amount, annualRate, loanDurationInMonths);
         const totalPayable = this.businessService.calculateTotalPayable(loanRequest.amount, interestRate);
         const loan = this.loanRepository.create({
@@ -58,7 +58,7 @@ export class LoanService {
         await this.loanRepository.save(loan);
 
         for (let i = 1; i <= loanDurationInMonths; i++) {
-            const dueDate = addMonths(loan.issuedAt, i); // use date-fns or moment
+            const dueDate = addMonths(loan.issuedAt, i); 
             const payment = this.paymentRepository.create({
                 loan,
                 dueDate,
@@ -105,9 +105,12 @@ export class LoanService {
         })
 
         if (loanRequests.length == 0) {
-            throw new NotFoundException('No loan requests');
+            return {
+                status: 'success',
+                message: 'No loan requests found',
+                data: [],
+            };
         }
-
         return {
             status: 'success',
             data: loanRequests.map((loanrequest) => ({
@@ -130,7 +133,7 @@ export class LoanService {
 
         if (loans.length === 0) {
             return {
-                status: 'error',
+                status: 'success',
                 message: 'No loans found',
                 data: [],
             };
