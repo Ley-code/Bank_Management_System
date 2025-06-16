@@ -9,6 +9,7 @@ import { Transaction } from 'src/core/entities/transaction.entity';
 import { TransferDto } from './dto/transferdto';
 import { LoanRequestDto } from './dto/loanRequestdto';
 import { LoanRequest } from 'src/core/entities/loanRequest.entity';
+import { AppNotification, NotificationType } from 'src/core/entities/notification.entity';
 @Injectable()
 export class UserService {
     
@@ -18,6 +19,7 @@ export class UserService {
         @InjectRepository(Branch) private readonly branchRepository: Repository<Branch>,
         @InjectRepository(Transaction) private readonly transactionRepository: Repository<Transaction>,
         @InjectRepository(LoanRequest) private readonly loanRequestRepository: Repository<LoanRequest>,
+        @InjectRepository(AppNotification) private readonly notificationRepository: Repository<AppNotification>,
     ) {}
 
     async getUserDetails(customerId: string) {
@@ -102,7 +104,14 @@ export class UserService {
             notes: `withdrawal of ${amount} from account ${accountNumber}`
         });
         await this.transactionRepository.save(newTransaction);
-
+        const notification = this.notificationRepository.create({
+            customer: myaccount.customer,
+            type: NotificationType.TRANSACTION,
+            message: `You have successfully withdrawn ${amount} from account ${accountNumber}. Your new balance is ${myaccount.balance}.`,
+            createdAt: new Date(),
+        });
+        await this.notificationRepository.save(notification);
+        // Return the updated account details
         return {
             status: 'success',
             data: {
@@ -186,6 +195,20 @@ export class UserService {
         await this.transactionRepository.save(withdrawalTransaction);
         await this.transactionRepository.save(depositTransaction);
 
+        const fromNotification = this.notificationRepository.create({
+            customer: fromAccount.customer,
+            type: NotificationType.TRANSACTION,
+            message: `You have successfully transferred ${amount} from account ${fromAccountNumber} to account ${toAccountNumber}.`,
+            createdAt: new Date(),
+        });
+        const toNotification = this.notificationRepository.create({
+            customer: toAccount.customer,
+            type: NotificationType.TRANSACTION,
+            message: `You have received ${amount} from account ${fromAccountNumber}.`,
+            createdAt: new Date(),
+        });
+        await this.notificationRepository.save(fromNotification);
+        await this.notificationRepository.save(toNotification);
         return {
             status: 'success',
             data: {
@@ -266,6 +289,7 @@ export class UserService {
         return {
             status: 'success',
             data: {
+                id: loanRequest.id,
                 accountNumber: account.accountNumber,
                 requestedAmount: amount,
                 purpose,
@@ -342,6 +366,32 @@ export class UserService {
                 requestedAt: loan.requestedAt,
             })),
             message: 'User loans retrieved successfully',
+        };
+    }
+
+    async getUserNotifications(customerId: string) {
+        const customer = await this.customerRepository.findOne({
+            where: { id: customerId },
+            relations: ['notifications'],
+        });
+
+        if (!customer) {
+            throw new NotFoundException('Customer not found');
+        }
+
+        // Assuming notifications are stored in the Customer entity
+        const notifications = customer.notifications || [];
+
+        return {
+            status: 'success',
+            data: notifications.map(notification => ({
+                id: notification.id,
+                title: notification.type,
+                message: notification.message,
+                createdAt: notification.createdAt,
+                date: notification.createdAt.toISOString().split('T')[0], // Format date to YYYY-MM-DD
+            })),
+            message: 'User notifications retrieved successfully',
         };
     }
 }

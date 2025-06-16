@@ -6,6 +6,7 @@ import { Customer } from 'src/core/entities/customer.entity';
 import { Repository } from 'typeorm';
 import { CreateAccountDto } from './dto/CreateAccountDto';
 import { UpdateAccountDto } from './dto/updateAccountdto';
+import { Transaction } from 'src/core/entities/transaction.entity';
 
 @Injectable()
 export class AccountsService {
@@ -18,6 +19,8 @@ export class AccountsService {
         private readonly customerRepository: Repository<Customer>,
         @InjectRepository(Branch)
         private readonly branchRepository: Repository<Branch>,
+        @InjectRepository(Transaction)
+        private readonly transactionRepository: Repository<Transaction>,
     ) {}
 
     async createAccount(createAccountDto: CreateAccountDto ){
@@ -49,6 +52,16 @@ export class AccountsService {
 
         existingBank.totalDeposits+= createAccountDto.balance
         await this.branchRepository.save(existingBank)
+
+        const transaction = this.transactionRepository.create({
+            account: savedAccount,
+            amount: createAccountDto.balance,
+            createdAt: new Date(),
+            direction: 'credit',
+            notes: 'Initial deposit',
+            type: 'deposit',
+        });
+        await this.transactionRepository.save(transaction);
 
         return {
             status: 'success',

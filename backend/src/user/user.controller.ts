@@ -52,4 +52,9 @@ export class UserController {
         return this.userService.getUserLoans(id);
     }
 
+    @Get(':id/notifications')
+    getUserNotifications(@Param('id') id: string) {
+        return this.userService.getUserNotifications(id);
+    }
+
 }

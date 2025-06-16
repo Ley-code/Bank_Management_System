@@ -1,8 +1,9 @@
 // src/components/Admin/Customers.jsx
 
 import axios from "axios";
-import { Edit2, Eye, Trash2, X } from "lucide-react";
-import React, { useEffect, useMemo, useState } from "react";
+import { Edit2, Eye, X } from "lucide-react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
+import ReactDOM from "react-dom";
 import { useForm } from "react-hook-form";
 
 /**
@@ -21,6 +22,7 @@ import { useForm } from "react-hook-form";
 const Customers = () => {
   // ---- State: Customers List (initially empty, replaced by API data) ----
   const [customers, setCustomers] = useState([]);
+  const [loading, setLoading] = useState(true);
 
   // ---- State: Modal Controls ----
   const [isFormOpen, setIsFormOpen] = useState(false);
@@ -33,6 +35,11 @@ const Customers = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 5;
 
+  // ---- State: Dropdown Controls ----
+  const [dropdownOpenId, setDropdownOpenId] = useState(null);
+  const [dropdownPosition, setDropdownPosition] = useState({ top: 0, left: 0 });
+  const dropdownBtnRefs = useRef({});
+
   // ---- React Hook Form Setup ----
   const {
     register,
@@ -42,9 +49,14 @@ const Customers = () => {
     formState: { errors },
   } = useForm();
 
+  // ---- State: Accounts Count and Total Balance ----
+  const [accountsCount, setAccountsCount] = useState(0);
+  const [totalBalance, setTotalBalance] = useState(0);
+
   // ---- Effect: Fetch Real Customer Data on Mount ----
   useEffect(() => {
     const fetchCustomers = async () => {
+      setLoading(true);
       try {
         const response = await axios.get(
           "http://localhost:8000/api/admin/customers"
@@ -65,10 +77,21 @@ const Customers = () => {
         setCustomers(apiCustomers);
       } catch (err) {
         console.error("Failed to fetch customers:", err);
+      } finally {
+        setLoading(false);
       }
     };
 
     fetchCustomers();
+
+    // Listen for admin-data-updated event to refresh customers
+    const handleAdminDataUpdated = () => {
+      fetchCustomers();
+    };
+    window.addEventListener("admin-data-updated", handleAdminDataUpdated);
+    return () => {
+      window.removeEventListener("admin-data-updated", handleAdminDataUpdated);
+    };
   }, []);
 
   // ---- Derived: Filtered & Searched Customers ----
@@ -112,24 +135,112 @@ const Customers = () => {
     setIsFormOpen(true);
   };
 
+  // ---- Handler: View Profile ----
+  const openViewModal = async (customer) => {
+    setViewingCustomer(customer);
+    setIsViewOpen(true);
+    // Fetch accounts for this customer
+    try {
+      const response = await axios.get(
+        "http://localhost:8000/api/admin/accounts"
+      );
+      const allAccounts = response.data.data || [];
+      // Filter accounts by accountHolderName or accountHolder (case-insensitive)
+      const customerAccounts = allAccounts.filter(
+        (acc) =>
+          (acc.accountHolderName &&
+            acc.accountHolderName.toLowerCase() ===
+              customer.fullName.toLowerCase()) ||
+          (acc.accountHolder &&
+            acc.accountHolder.toLowerCase() === customer.fullName.toLowerCase())
+      );
+      setAccountsCount(customerAccounts.length);
+      setTotalBalance(
+        customerAccounts.reduce(
+          (sum, acc) => sum + (Number(acc.accountBalance) || 0),
+          0
+        )
+      );
+    } catch (err) {
+      setAccountsCount(0);
+      setTotalBalance(0);
+    }
+  };
+
+  // ---- Handler: Delete Customer ----
+  const deleteCustomer = async (customer) => {
+    if (
+      window.confirm(
+        `Are you sure you want to permanently delete ${customer.fullName}?`
+      )
+    ) {
+      setCustomers((prev) => prev.filter((c) => c.id !== customer.id));
+      try {
+        await axios.delete(
+          `http://localhost:8000/api/admin/customers/${customer.id}`
+        );
+      } catch (err) {
+        console.error("Failed to delete customer:", err);
+      }
+    }
+  };
+
+  // ---- Handler: Close Modals ----
+  const closeForm = () => setIsFormOpen(false);
+  const closeView = () => setIsViewOpen(false);
+
+  // Dropdown handlers
+  const handleDropdownToggle = (id) => {
+    if (dropdownOpenId === id) {
+      setDropdownOpenId(null);
+      return;
+    }
+    // Get the button's bounding rect for positioning
+    const btn = dropdownBtnRefs.current[id];
+    if (btn) {
+      const rect = btn.getBoundingClientRect();
+      setDropdownPosition({
+        top: rect.bottom + window.scrollY,
+        left: rect.right + window.scrollX - 180, // 180px is dropdown width
+      });
+    }
+    setDropdownOpenId(id);
+  };
+  const handleDropdownClose = () => setDropdownOpenId(null);
+
   // ---- Handler: Form Submit (Add or Edit) ----
   const onSubmit = async (data) => {
     if (editingCustomer) {
-      // Editing existing customer: local state update (PUT can be implemented later)
-      const updated = {
-        ...editingCustomer,
+      // Update all fields, not just fullName
+      const updatePayload = {
         fullName: data.fullName.trim(),
         email: data.email.trim(),
         phone: data.phone.trim(),
         city: data.city.trim(),
-        subcity: data.subcity.trim(),
+        subCity: data.subcity.trim(),
         zone: data.zone.trim(),
         woreda: data.woreda.trim(),
-        houseNo: data.houseNo.trim(),
+        houseNumber: data.houseNo.trim(),
       };
-      setCustomers((prev) =>
-        prev.map((c) => (c.id === updated.id ? updated : c))
-      );
+      try {
+        const response = await axios.put(
+          `http://localhost:8000/api/admin/customers/${editingCustomer.id}`,
+          updatePayload,
+          {
+            headers: { "Content-Type": "application/json" },
+          }
+        );
+        if (response.data.status === "success") {
+          setCustomers((prev) =>
+            prev.map((c) =>
+              c.id === editingCustomer.id ? { ...c, ...updatePayload } : c
+            )
+          );
+        }
+      } catch (err) {
+        console.error("Failed to update customer:", err);
+      }
+      setIsFormOpen(false);
     } else {
       // Creating new customer via POST
       const createPayload = {
@@ -173,168 +284,132 @@ const Customers = () => {
     setIsFormOpen(false);
   };
 
-  // ---- Handler: View Profile ----
-  const openViewModal = (customer) => {
-    setViewingCustomer(customer);
-    setIsViewOpen(true);
-  };
-
-  // ---- Handler: Delete Customer ----
-  const deleteCustomer = async (customer) => {
-    if (
-      window.confirm(
-        `Are you sure you want to permanently delete ${customer.fullName}?`
-      )
-    ) {
-      setCustomers((prev) => prev.filter((c) => c.id !== customer.id));
-      // TODO: Send DELETE request to backend
-      /*
-      try {
-        await fetch(`http://localhost:8000/api/admin/customers/${customer.id}`, {
-          method: "DELETE",
-        });
-      } catch (err) {
-        console.error("Failed to delete customer:", err);
-      }
-      */
-    }
-  };
-
-  // ---- Handler: Close Modals ----
-  const closeForm = () => setIsFormOpen(false);
-  const closeView = () => setIsViewOpen(false);
-
   return (
     <div className="flex flex-col min-h-screen overflow-hidden">
       <div className="flex-1 p-6 bg-gray-50">
-        {/* ===== Search Bar ===== */}
-        <div className="flex flex-col md:flex-row items-start md:items-center justify-between mb-6 space-y-4 md:space-y-0">
-          <input
-            type="text"
-            placeholder="Search by ID, Name, or Email"
-            value={searchTerm}
-            onChange={(e) => {
-              setSearchTerm(e.target.value);
-              setCurrentPage(1);
-            }}
-            className="w-full md:w-1/3 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-          />
-
-          <button
-            onClick={openAddForm}
-            className="bg-blue-500 text-white px-4 py-2 rounded-md hover:bg-blue-600 cursor-pointer"
-          >
-            Add New Customer
-          </button>
-        </div>
-
-        {/* ===== Customers Table ===== */}
-        <div className="overflow-x-hidden">
-          <table className="w-full table-auto bg-white rounded-lg shadow-sm">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">
-                  ID
-                </th>
-                <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">
-                  Full Name
-                </th>
-                <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">
-                  Email
-                </th>
-                <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">
-                  Phone
-                </th>
-                <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">
-                  City
-                </th>
-                <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">
-                  Subcity
-                </th>
-                <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">
-                  Zone
-                </th>
-                <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">
-                  Woreda
-                </th>
-                <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">
-                  House No
-                </th>
-                <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">
-                  Actions
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {paginatedCustomers.map((customer) => (
-                <tr
-                  key={customer.id}
-                  className="even:bg-gray-50 odd:bg-white hover:bg-gray-100"
-                >
-                  <td className="px-4 py-3 text-sm text-gray-700">
-                    {customer.id}
-                  </td>
-                  <td className="px-4 py-3 text-sm text-gray-700">
-                    {customer.fullName}
-                  </td>
-                  <td className="px-4 py-3 text-sm text-gray-700">
-                    {customer.email}
-                  </td>
-                  <td className="px-4 py-3 text-sm text-gray-700">
-                    {customer.phone}
-                  </td>
-                  <td className="px-4 py-3 text-sm text-gray-700">
-                    {customer.city}
-                  </td>
-                  <td className="px-4 py-3 text-sm text-gray-700">
-                    {customer.subcity}
-                  </td>
-                  <td className="px-4 py-3 text-sm text-gray-700">
-                    {customer.zone}
-                  </td>
-                  <td className="px-4 py-3 text-sm text-gray-700">
-                    {customer.woreda}
-                  </td>
-                  <td className="px-4 py-3 text-sm text-gray-700">
-                    {customer.houseNo}
-                  </td>
-                  <td className="px-4 py-3 text-sm text-gray-700 flex space-x-2">
-                    <button
-                      onClick={() => openViewModal(customer)}
-                      title="View Profile"
-                      className="p-1 rounded hover:bg-gray-200 cursor-pointer"
-                    >
-                      <Eye className="w-4 h-4 text-blue-600" />
-                    </button>
-                    <button
-                      onClick={() => openEditForm(customer)}
-                      title="Edit"
-                      className="p-1 rounded hover:bg-gray-200 cursor-pointer"
-                    >
-                      <Edit2 className="w-4 h-4 text-green-600" />
-                    </button>
-                    <button
-                      onClick={() => deleteCustomer(customer)}
-                      title="Delete"
-                      className="p-1 rounded hover:bg-gray-200 cursor-pointer"
-                    >
-                      <Trash2 className="w-4 h-4 text-red-600" />
-                    </button>
-                  </td>
-                </tr>
-              ))}
-              {paginatedCustomers.length === 0 && (
+        <div className="rounded-xl shadow-md bg-white p-6">
+          {/* ===== Search Bar and Add Button ===== */}
+          <div className="flex flex-col md:flex-row items-start md:items-center justify-between mb-6 space-y-4 md:space-y-0">
+            <input
+              type="text"
+              placeholder="Search by ID, Name, or Email"
+              value={searchTerm}
+              onChange={(e) => {
+                setSearchTerm(e.target.value);
+                setCurrentPage(1);
+              }}
+              className="w-full md:w-1/3 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+            />
+            <button
+              onClick={openAddForm}
+              className="bg-blue-500 text-white px-4 py-2 rounded-md hover:bg-blue-600 cursor-pointer"
+            >
+              Add New Customer
+            </button>
+          </div>
+          {/* ===== Customers Table ===== */}
+          <div className="overflow-x-auto w-full rounded-xl">
+            <table className="w-full min-w-[1100px] table-auto rounded-xl overflow-hidden">
+              <thead className="bg-gray-50">
                 <tr>
-                  <td
-                    colSpan={10}
-                    className="px-4 py-6 text-center text-gray-500 italic"
-                  >
-                    No customers found.
-                  </td>
+                  <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">
+                    Full Name
+                  </th>
+                  <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">
+                    Email
+                  </th>
+                  <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">
+                    Phone
+                  </th>
+                  <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">
+                    City
+                  </th>
+                  <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">
+                    Subcity
+                  </th>
+                  <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">
+                    Zone
+                  </th>
+                  <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">
+                    Woreda
+                  </th>
+                  <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">
+                    House No
+                  </th>
+                  <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">
+                    Actions
+                  </th>
                 </tr>
-              )}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {paginatedCustomers.map((customer) => (
+                  <tr
+                    key={customer.id}
+                    className="even:bg-gray-50 odd:bg-white hover:bg-gray-100"
+                  >
+                    <td className="px-4 py-3 text-sm text-gray-700">
+                      {customer.fullName}
+                    </td>
+                    <td className="px-4 py-3 text-sm text-gray-700">
+                      {customer.email}
+                    </td>
+                    <td className="px-4 py-3 text-sm text-gray-700">
+                      {customer.phone}
+                    </td>
+                    <td className="px-4 py-3 text-sm text-gray-700">
+                      {customer.city}
+                    </td>
+                    <td className="px-4 py-3 text-sm text-gray-700">
+                      {customer.subcity}
+                    </td>
+                    <td className="px-4 py-3 text-sm text-gray-700">
+                      {customer.zone}
+                    </td>
+                    <td className="px-4 py-3 text-sm text-gray-700">
+                      {customer.woreda}
+                    </td>
+                    <td className="px-4 py-3 text-sm text-gray-700">
+                      {customer.houseNo}
+                    </td>
+                    <td className="px-4 py-3 text-sm text-gray-700 relative">
+                      <button
+                        ref={(el) =>
+                          (dropdownBtnRefs.current[customer.id] = el)
+                        }
+                        onClick={() => handleDropdownToggle(customer.id)}
+                        className="p-1 rounded hover:bg-gray-200 cursor-pointer flex items-center justify-center"
+                        aria-label="Actions"
+                        type="button"
+                      >
+                        <span className="inline-block">
+                          <svg
+                            width="24"
+                            height="24"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                          >
+                            <circle cx="5" cy="12" r="1.5" fill="#222" />
+                            <circle cx="12" cy="12" r="1.5" fill="#222" />
+                            <circle cx="19" cy="12" r="1.5" fill="#222" />
+                          </svg>
+                        </span>
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+                {paginatedCustomers.length === 0 && (
+                  <tr>
+                    <td
+                      colSpan={10}
+                      className="px-4 py-6 text-center text-gray-500 italic"
+                    >
+                      No customers found.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
         </div>
 
         {/* ===== Pagination Numeric Buttons ===== */}
@@ -360,43 +435,93 @@ const Customers = () => {
       {/* ===== View Profile Modal ===== */}
       {isViewOpen && viewingCustomer && (
         <div
-          className="fixed inset-0 backdrop-blur-[2px] bg-transparent flex items-center justify-center z-50"
+          className="fixed inset-0 backdrop-blur-[2px] bg-black/10 flex items-center justify-center z-50"
           onClick={closeView}
         >
           <div
-            className="bg-white p-6 rounded-xl shadow-xl max-w-lg w-full relative"
+            className="bg-white p-8 rounded-2xl shadow-2xl max-w-lg w-full relative"
             onClick={(e) => e.stopPropagation()}
           >
-            <h2 className="text-2xl font-bold text-gray-900 mb-4">
-              Customer Profile
-            </h2>
-            <div className="space-y-2">
-              <p>
-                <strong>ID:</strong> {viewingCustomer.id}
-              </p>
-              <p>
-                <strong>Name:</strong> {viewingCustomer.fullName}
-              </p>
-              <p>
-                <strong>Email:</strong> {viewingCustomer.email}
-              </p>
-              <p>
-                <strong>Phone:</strong> {viewingCustomer.phone}
-              </p>
-              <p>
-                <strong>Address:</strong>{" "}
-                {`${viewingCustomer.houseNo}, ${viewingCustomer.woreda}, ${viewingCustomer.zone}, ${viewingCustomer.subcity}, ${viewingCustomer.city}`}
-              </p>
-              <p>
-                <strong>Date Joined:</strong> {viewingCustomer.dateJoined}
-              </p>
-            </div>
             <button
               onClick={closeView}
-              className="absolute top-4 right-4 text-gray-500 hover:text-gray-700 cursor-pointer"
+              className="absolute top-4 right-4 text-gray-400 hover:text-gray-700 cursor-pointer"
+              aria-label="Close"
             >
               <X className="w-6 h-6" />
             </button>
+            <div className="flex items-center gap-4 mb-6">
+              <div className="w-16 h-16 rounded-full bg-blue-100 flex items-center justify-center text-2xl font-bold text-blue-700">
+                {viewingCustomer.fullName
+                  .split(" ")
+                  .map((n) => n[0])
+                  .join("")}
+              </div>
+              <div>
+                <div className="flex items-center gap-2">
+                  <h2 className="text-2xl font-bold text-gray-900">
+                    {viewingCustomer.fullName}
+                  </h2>
+                  <span className="bg-green-100 text-green-700 text-xs font-semibold px-2 py-1 rounded-full">
+                    Active
+                  </span>
+                </div>
+              </div>
+            </div>
+            <div className="space-y-3 mb-6">
+              <div className="flex items-center gap-2 text-gray-700">
+                <svg
+                  className="w-5 h-5"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  viewBox="0 0 24 24"
+                >
+                  <path d="M16 12a4 4 0 1 0-8 0 4 4 0 0 0 8 0Z" />
+                  <path d="M12 14v7m0 0H7m5 0h5" />
+                </svg>
+                <span>{viewingCustomer.email}</span>
+              </div>
+              <div className="flex items-center gap-2 text-gray-700">
+                <svg
+                  className="w-5 h-5"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  viewBox="0 0 24 24"
+                >
+                  <path d="M2 8.5C2 7.12 3.12 6 4.5 6h15A2.5 2.5 0 0 1 22 8.5v7A2.5 2.5 0 0 1 19.5 18h-15A2.5 2.5 0 0 1 2 15.5v-7Z" />
+                  <path d="M6 10h.01M6 14h.01M12 10h.01M12 14h.01M18 10h.01M18 14h.01" />
+                </svg>
+                <span>{viewingCustomer.phone}</span>
+              </div>
+              <div className="flex items-center gap-2 text-gray-700">
+                <svg
+                  className="w-5 h-5"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  viewBox="0 0 24 24"
+                >
+                  <path d="M17.657 16.657A8 8 0 1 0 6.343 5.343a8 8 0 0 0 11.314 11.314Z" />
+                  <path d="M15 11a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" />
+                </svg>
+                <span>{`${viewingCustomer.houseNo}, ${viewingCustomer.woreda}, ${viewingCustomer.zone}, ${viewingCustomer.subcity}, ${viewingCustomer.city}`}</span>
+              </div>
+            </div>
+            <div className="flex justify-between items-center border-t pt-4 mt-4">
+              <div className="text-center">
+                <div className="text-xs text-gray-500">Accounts</div>
+                <div className="text-2xl font-bold text-gray-900">
+                  {accountsCount}
+                </div>
+              </div>
+              <div className="text-center">
+                <div className="text-xs text-gray-500">Total Balance</div>
+                <div className="text-2xl font-bold text-gray-900">
+                  ${totalBalance.toLocaleString()}
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       )}
@@ -470,12 +595,12 @@ const Customers = () => {
                   {...register("phone", {
                     required: "Phone is required",
                     pattern: {
-                      value: /^[0-9\-\s]+$/,
+                      value: /^\+?[0-9\s\-]+$/,
                       message: "Invalid phone format",
                     },
                   })}
                   className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                  placeholder="e.g. 251-91-123-4567"
+                  placeholder="e.g. +251-91-123-4567"
                 />
                 {errors.phone && (
                   <p className="text-sm text-red-600">{errors.phone.message}</p>
@@ -593,6 +718,47 @@ const Customers = () => {
           </div>
         </div>
       )}
+
+      {/* Portal Dropdown */}
+      {dropdownOpenId !== null &&
+        (() => {
+          const customer = customers.find((c) => c.id === dropdownOpenId);
+          if (!customer) return null;
+          return ReactDOM.createPortal(
+            <div
+              style={{
+                position: "absolute",
+                top: dropdownPosition.top,
+                left: dropdownPosition.left,
+                zIndex: 9999,
+                width: 180,
+              }}
+              className="bg-white border border-gray-200 rounded-lg shadow-lg flex flex-col py-2 animate-fade-in"
+              onMouseLeave={handleDropdownClose}
+            >
+              <button
+                onClick={() => {
+                  openViewModal(customer);
+                  handleDropdownClose();
+                }}
+                className="flex items-center w-full px-4 py-2 text-sm hover:bg-gray-100 text-gray-800 gap-2 cursor-pointer"
+              >
+                <Eye className="w-4 h-4 mr-2" /> View Details
+              </button>
+              <div className="border-t border-gray-200 my-1" />
+              <button
+                onClick={() => {
+                  openEditForm(customer);
+                  handleDropdownClose();
+                }}
+                className="flex items-center w-full px-4 py-2 text-sm hover:bg-gray-100 text-gray-800 gap-2 cursor-pointer"
+              >
+                <Edit2 className="w-4 h-4 mr-2" /> Edit Customer
+              </button>
+            </div>,
+            document.body
+          );
+        })()}
     </div>
   );
 };

@@ -2,7 +2,8 @@
 
 import axios from "axios";
 import { Edit2, Trash2, X } from "lucide-react";
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
+import ReactDOM from "react-dom";
 import { useForm } from "react-hook-form";
 
 /**
@@ -46,6 +47,13 @@ const Branches = () => {
   // State: Modal Controls for Add/Edit
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingBranch, setEditingBranch] = useState(null);
+  const [loading, setLoading] = useState(true);
+  // Add state for dropdown and view modal
+  const [dropdownOpenId, setDropdownOpenId] = useState(null);
+  const [dropdownPosition, setDropdownPosition] = useState({ top: 0, left: 0 });
+  const dropdownBtnRefs = useRef({});
+  const [viewingBranch, setViewingBranch] = useState(null);
+  const [isViewOpen, setIsViewOpen] = useState(false);
 
   // React Hook Form Setup
   const {
@@ -59,12 +67,15 @@ const Branches = () => {
   // Load Branch Data from API on Mount
   useEffect(() => {
     const fetchBranches = async () => {
+      setLoading(true);
       try {
         const response = await api.get("/admin/branch");
         setBranches(response.data?.data || []);
       } catch (error) {
         console.error("Error fetching branches:", error);
         setBranches([]);
+      } finally {
+        setLoading(false);
       }
     };
     fetchBranches();
@@ -112,31 +123,26 @@ const Branches = () => {
   const onSubmit = async (data) => {
     try {
       if (editingBranch) {
-        // TODO: Implement PUT for editing branch if needed
-        const updated = {
-          ...editingBranch,
-          branchName: data.branchName.trim(),
-          city: data.city.trim(),
-          assets: parseFloat(data.assets),
-          totalDeposits: parseFloat(data.totalDeposits),
-          totalWithdrawals: parseFloat(data.totalWithdrawals),
-          totalLoans: parseFloat(data.totalLoans),
-          lastUpdated: new Date().toISOString().split("T")[0],
-        };
-        setBranches((prev) =>
-          prev.map((b) => (b.id === updated.id ? updated : b))
+        const response = await api.put(
+          `/admin/branch/${encodeURIComponent(editingBranch.branchName)}`,
+          {
+            city: data.city.trim(),
+          }
         );
+        if (response.data) {
+          // Refresh branches list
+          const branchesResponse = await api.get("/admin/branch");
+          setBranches(branchesResponse.data?.data || []);
+        }
         setEditingBranch(null);
       } else {
         // Add new branch (POST)
         const newBranch = {
           branchName: data.branchName.trim(),
           city: data.city.trim(),
-          assets: parseFloat(data.assets),
-          totalDeposits: parseFloat(data.totalDeposits),
-          totalWithdrawals: parseFloat(data.totalWithdrawals),
-          totalLoans: parseFloat(data.totalLoans),
-          lastUpdated: new Date().toISOString().split("T")[0],
+          totalDeposits: 0,
+          totalWithdrawals: 0,
+          totalLoans: 0,
         };
         const response = await api.post("/admin/branch", newBranch);
         if (response.data) {
@@ -157,14 +163,35 @@ const Branches = () => {
   };
 
   // Handler: Delete Branch (local only, no API)
-  const deleteBranch = (branch) => {
+  const deleteBranch = async (branch) => {
     if (
       window.confirm(
         `Are you sure you want to delete branch "${branch.branchName}"?`
       )
     ) {
-      setBranches((prev) => prev.filter((b) => b.id !== branch.id));
-      // TODO: Implement DELETE API if needed
+      try {
+        await api.delete(
+          `/admin/branch/${encodeURIComponent(branch.branchName)}`,
+          {
+            data: {
+              branchName: branch.branchName,
+              city: branch.city,
+              totalDeposits: branch.totalDeposits,
+              totalWithdrawals: branch.totalWithdrawals,
+              totalLoans: branch.totalLoans,
+            },
+          }
+        );
+        // Refresh branches list
+        const branchesResponse = await api.get("/admin/branch");
+        setBranches(branchesResponse.data?.data || []);
+      } catch (error) {
+        console.error("Error deleting branch:", error);
+        alert(
+          error.response?.data?.message ||
+            "Failed to delete branch. Please try again."
+        );
+      }
     }
   };
 
@@ -174,164 +201,172 @@ const Branches = () => {
     return ["All", ...Array.from(new Set(cities))];
   }, [branches]);
 
+  // Dropdown handlers
+  const handleDropdownToggle = (id) => {
+    if (dropdownOpenId === id) {
+      setDropdownOpenId(null);
+      return;
+    }
+    const btn = dropdownBtnRefs.current[id];
+    if (btn) {
+      const rect = btn.getBoundingClientRect();
+      setDropdownPosition({
+        top: rect.bottom + window.scrollY,
+        left: rect.right + window.scrollX - 180,
+      });
+    }
+    setDropdownOpenId(id);
+  };
+  const handleDropdownClose = () => setDropdownOpenId(null);
+  const openViewModal = (branch) => {
+    setViewingBranch(branch);
+    setIsViewOpen(true);
+  };
+  const closeViewModal = () => setIsViewOpen(false);
+
   return (
     <div className="flex flex-col min-h-screen overflow-hidden">
       <div className="flex-1 p-6 bg-gray-50">
-        {/* ===== Header & Add Button ===== */}
-        <div className="flex justify-between items-center mb-6">
-          <h2 className="text-3xl font-bold text-gray-900">Branches</h2>
-          <button
-            onClick={openAddForm}
-            className="bg-blue-500 text-white px-4 py-2 rounded-md hover:bg-blue-600 cursor-pointer"
-          >
-            Add New Branch
-          </button>
-        </div>
-        {/* ===== Search & Filter Controls ===== */}
-        <div className="flex flex-col md:flex-row items-start md:items-center gap-4 mb-4">
-          <input
-            type="text"
-            placeholder="Search by Branch Name or City"
-            value={searchTerm}
-            onChange={(e) => {
-              setSearchTerm(e.target.value);
-              setCurrentPage(1);
-            }}
-            className="w-full md:w-1/3 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-          />
-          <select
-            value={filterCity}
-            onChange={(e) => {
-              setFilterCity(e.target.value);
-              setCurrentPage(1);
-            }}
-            className="w-full md:w-1/5 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-          >
-            {uniqueCities.map((city, idx) => (
-              <option key={idx} value={city}>
-                {city}
-              </option>
-            ))}
-          </select>
-        </div>
-        {/* ===== Branches Table ===== */}
-        <div className="overflow-x-hidden">
-          <table className="w-full table-auto bg-white rounded-lg shadow-sm">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">
-                  Branch Name
-                </th>
-                <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">
-                  City
-                </th>
-                <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">
-                  Assets
-                </th>
-                <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">
-                  Total Deposits
-                </th>
-                <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">
-                  Total Withdrawals
-                </th>
-                <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">
-                  Total Loans
-                </th>
-                <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">
-                  Last Updated
-                </th>
-                <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">
-                  Actions
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {paginatedBranches.map((b) => (
-                <tr
-                  key={b.id || b.branchName}
-                  className="even:bg-gray-50 odd:bg-white hover:bg-gray-100"
-                >
-                  <td className="px-4 py-3 text-sm text-gray-700">
-                    {b.branchName || "-"}
-                  </td>
-                  <td className="px-4 py-3 text-sm text-gray-700">
-                    {b.city || "-"}
-                  </td>
-                  <td className="px-4 py-3 text-sm text-gray-700">
-                    $
-                    {typeof b.assets === "number"
-                      ? b.assets.toLocaleString()
-                      : "0"}
-                  </td>
-                  <td className="px-4 py-3 text-sm text-gray-700">
-                    $
-                    {typeof b.totalDeposits === "number"
-                      ? b.totalDeposits.toLocaleString()
-                      : "0"}
-                  </td>
-                  <td className="px-4 py-3 text-sm text-gray-700">
-                    $
-                    {typeof b.totalWithdrawals === "number"
-                      ? b.totalWithdrawals.toLocaleString()
-                      : "0"}
-                  </td>
-                  <td className="px-4 py-3 text-sm text-gray-700">
-                    $
-                    {typeof b.totalLoans === "number"
-                      ? b.totalLoans.toLocaleString()
-                      : "0"}
-                  </td>
-                  <td className="px-4 py-3 text-sm text-gray-700">
-                    {b.lastUpdated || "-"}
-                  </td>
-                  <td className="px-4 py-3 text-sm text-gray-700 flex space-x-2">
-                    <button
-                      onClick={() => openEditForm(b)}
-                      title="Edit Branch"
-                      className="p-1 rounded hover:bg-gray-200 cursor-pointer"
-                    >
-                      <Edit2 className="w-5 h-5 text-indigo-600" />
-                    </button>
-                    <button
-                      onClick={() => deleteBranch(b)}
-                      title="Delete Branch"
-                      className="p-1 rounded hover:bg-gray-200 cursor-pointer"
-                    >
-                      <Trash2 className="w-5 h-5 text-red-600" />
-                    </button>
-                  </td>
-                </tr>
-              ))}
-              {paginatedBranches.length === 0 && (
+        <div className="rounded-xl shadow-md bg-white p-6">
+          {/* ===== Title, Search Bar, and Add Button ===== */}
+          <div className="flex flex-col md:flex-row items-start md:items-center justify-between mb-6 gap-4">
+            <h2 className="text-2xl font-bold text-gray-800">Branches</h2>
+            <input
+              type="text"
+              placeholder="Search by Branch Name or City"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full md:w-1/3 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+            />
+            <button
+              onClick={openAddForm}
+              className="bg-blue-500 text-white px-4 py-2 rounded-md hover:bg-blue-600 cursor-pointer"
+            >
+              Add New Branch
+            </button>
+          </div>
+          {/* ===== Branches Table ===== */}
+          <div className="overflow-x-auto w-full rounded-xl">
+            <table className="w-full min-w-[1100px] table-auto rounded-xl overflow-hidden">
+              <thead className="bg-gray-50">
                 <tr>
-                  <td
-                    colSpan={8}
-                    className="px-4 py-6 text-center text-gray-500 italic"
-                  >
-                    No branches found.
-                  </td>
+                  <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">
+                    Branch Name
+                  </th>
+                  <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">
+                    City
+                  </th>
+                  <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">
+                    Total Deposits
+                  </th>
+                  <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">
+                    Total Withdrawals
+                  </th>
+                  <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">
+                    Total Loans
+                  </th>
+                  <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">
+                    Date Created
+                  </th>
+                  <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">
+                    Actions
+                  </th>
                 </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-        {/* ===== Pagination Numeric Buttons ===== */}
-        <div className="flex justify-center items-center mt-4 space-x-2">
-          {Array.from({ length: totalPages }, (_, i) => i + 1).map(
-            (pageNum) => (
-              <button
-                key={pageNum}
-                onClick={() => goToPage(pageNum)}
-                className={`px-3 py-1 rounded-md ${
-                  pageNum === currentPage
-                    ? "bg-blue-500 text-white"
-                    : "bg-gray-200 text-gray-700 hover:bg-gray-300"
-                }`}
-              >
-                {pageNum}
-              </button>
-            )
-          )}
+              </thead>
+              <tbody>
+                {paginatedBranches.map((b) => (
+                  <tr
+                    key={b.id || b.branchName}
+                    className="even:bg-gray-50 odd:bg-white hover:bg-gray-100"
+                  >
+                    <td className="px-4 py-3 text-sm text-gray-700">
+                      {b.branchName || "-"}
+                    </td>
+                    <td className="px-4 py-3 text-sm text-gray-700">
+                      {b.city || "-"}
+                    </td>
+                    <td className="px-4 py-3 text-sm text-gray-700">
+                      $
+                      {typeof b.totalDeposits === "number"
+                        ? b.totalDeposits.toLocaleString()
+                        : "0"}
+                    </td>
+                    <td className="px-4 py-3 text-sm text-gray-700">
+                      $
+                      {typeof b.totalWithdrawals === "number"
+                        ? b.totalWithdrawals.toLocaleString()
+                        : "0"}
+                    </td>
+                    <td className="px-4 py-3 text-sm text-gray-700">
+                      $
+                      {typeof b.totalLoans === "number"
+                        ? b.totalLoans.toLocaleString()
+                        : "0"}
+                    </td>
+                    <td className="px-4 py-3 text-sm text-gray-700">
+                      {b.createdAt
+                        ? new Date(b.createdAt).toLocaleDateString()
+                        : "-"}
+                    </td>
+                    <td className="px-4 py-3 text-sm text-gray-700 relative">
+                      <button
+                        ref={(el) =>
+                          (dropdownBtnRefs.current[b.id || b.branchName] = el)
+                        }
+                        onClick={() =>
+                          handleDropdownToggle(b.id || b.branchName)
+                        }
+                        className="p-1 rounded hover:bg-gray-200 cursor-pointer flex items-center justify-center"
+                        aria-label="Actions"
+                        type="button"
+                      >
+                        <span className="inline-block">
+                          <svg
+                            width="24"
+                            height="24"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                          >
+                            <circle cx="5" cy="12" r="1.5" fill="#222" />
+                            <circle cx="12" cy="12" r="1.5" fill="#222" />
+                            <circle cx="19" cy="12" r="1.5" fill="#222" />
+                          </svg>
+                        </span>
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+                {paginatedBranches.length === 0 && (
+                  <tr>
+                    <td
+                      colSpan={7}
+                      className="px-4 py-6 text-center text-gray-500 italic"
+                    >
+                      No branches found.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+          {/* ===== Pagination Numeric Buttons ===== */}
+          <div className="flex justify-center items-center mt-4 space-x-2">
+            {Array.from({ length: totalPages }, (_, i) => i + 1).map(
+              (pageNum) => (
+                <button
+                  key={pageNum}
+                  onClick={() => goToPage(pageNum)}
+                  className={`px-3 py-1 rounded-md ${
+                    pageNum === currentPage
+                      ? "bg-blue-500 text-white"
+                      : "bg-gray-200 text-gray-700 hover:bg-gray-300"
+                  }`}
+                >
+                  {pageNum}
+                </button>
+              )
+            )}
+          </div>
         </div>
       </div>
       {/* ===== Add / Edit Branch Modal ===== */}
@@ -368,6 +403,7 @@ const Branches = () => {
                     className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
                     placeholder="e.g. Main Branch"
                     defaultValue={editingBranch?.branchName || ""}
+                    disabled={!!editingBranch}
                   />
                   {errors.branchName && (
                     <p className="text-sm text-red-600">
@@ -392,93 +428,6 @@ const Branches = () => {
                     </p>
                   )}
                 </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">
-                    Assets
-                  </label>
-                  <input
-                    type="number"
-                    {...register("assets", {
-                      required: "Assets value is required",
-                      min: { value: 0, message: "Assets cannot be negative" },
-                    })}
-                    className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
-                    placeholder="e.g. 5000000"
-                    defaultValue={editingBranch?.assets || ""}
-                    step="0.01"
-                  />
-                  {errors.assets && (
-                    <p className="text-sm text-red-600">
-                      {errors.assets.message}
-                    </p>
-                  )}
-                </div>
-              </div>
-              {/* Right Column */}
-              <div className="flex flex-col gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">
-                    Total Deposits
-                  </label>
-                  <input
-                    type="number"
-                    {...register("totalDeposits", {
-                      required: "Total Deposits is required",
-                      min: { value: 0, message: "Cannot be negative" },
-                    })}
-                    className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
-                    placeholder="e.g. 2000000"
-                    defaultValue={editingBranch?.totalDeposits || ""}
-                    step="0.01"
-                  />
-                  {errors.totalDeposits && (
-                    <p className="text-sm text-red-600">
-                      {errors.totalDeposits.message}
-                    </p>
-                  )}
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">
-                    Total Withdrawals
-                  </label>
-                  <input
-                    type="number"
-                    {...register("totalWithdrawals", {
-                      required: "Total Withdrawals is required",
-                      min: { value: 0, message: "Cannot be negative" },
-                    })}
-                    className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
-                    placeholder="e.g. 1500000"
-                    defaultValue={editingBranch?.totalWithdrawals || ""}
-                    step="0.01"
-                  />
-                  {errors.totalWithdrawals && (
-                    <p className="text-sm text-red-600">
-                      {errors.totalWithdrawals.message}
-                    </p>
-                  )}
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">
-                    Total Loans
-                  </label>
-                  <input
-                    type="number"
-                    {...register("totalLoans", {
-                      required: "Total Loans is required",
-                      min: { value: 0, message: "Cannot be negative" },
-                    })}
-                    className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
-                    placeholder="e.g. 1000000"
-                    defaultValue={editingBranch?.totalLoans || ""}
-                    step="0.01"
-                  />
-                  {errors.totalLoans && (
-                    <p className="text-sm text-red-600">
-                      {errors.totalLoans.message}
-                    </p>
-                  )}
-                </div>
               </div>
               {/* Submit Button (spans both columns) */}
               <div className="md:col-span-2 flex justify-end pt-4">
@@ -499,6 +448,169 @@ const Branches = () => {
             >
               <X className="w-6 h-6" />
             </button>
+          </div>
+        </div>
+      )}
+      {/* Portal Dropdown */}
+      {dropdownOpenId !== null &&
+        (() => {
+          const branch = paginatedBranches.find(
+            (b) => (b.id || b.branchName) === dropdownOpenId
+          );
+          if (!branch) return null;
+          return ReactDOM.createPortal(
+            <div
+              style={{
+                position: "absolute",
+                top: dropdownPosition.top,
+                left: dropdownPosition.left,
+                zIndex: 9999,
+                width: 180,
+              }}
+              className="bg-white border border-gray-200 rounded-lg shadow-lg flex flex-col py-2 animate-fade-in"
+              onMouseLeave={handleDropdownClose}
+            >
+              <button
+                onClick={() => {
+                  openViewModal(branch);
+                  handleDropdownClose();
+                }}
+                className="flex items-center w-full px-4 py-2 text-sm hover:bg-gray-100 text-gray-800 gap-2 cursor-pointer"
+              >
+                <svg
+                  className="w-4 h-4 mr-2"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  viewBox="0 0 24 24"
+                >
+                  <circle cx="12" cy="12" r="10" />
+                  <path d="M12 8v4l3 3" />
+                </svg>{" "}
+                View Details
+              </button>
+              <button
+                onClick={() => {
+                  openEditForm(branch);
+                  handleDropdownClose();
+                }}
+                className="flex items-center w-full px-4 py-2 text-sm hover:bg-gray-100 text-gray-800 gap-2 cursor-pointer"
+              >
+                <Edit2 className="w-4 h-4 mr-2" /> Edit Branch
+              </button>
+              <div className="border-t border-gray-200 my-1" />
+              <button
+                onClick={() => {
+                  deleteBranch(branch);
+                  handleDropdownClose();
+                }}
+                className="flex items-center w-full px-4 py-2 text-sm hover:bg-gray-100 text-red-600 gap-2 cursor-pointer"
+              >
+                <Trash2 className="w-4 h-4 mr-2" /> Delete Branch
+              </button>
+            </div>,
+            document.body
+          );
+        })()}
+      {/* View Details Modal */}
+      {isViewOpen && viewingBranch && (
+        <div
+          className="fixed inset-0 flex items-center justify-center z-50 backdrop-blur-[2px] bg-black/10"
+          onClick={closeViewModal}
+        >
+          <div
+            className="bg-white p-8 rounded-2xl shadow-2xl max-w-lg w-full relative"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button
+              onClick={closeViewModal}
+              className="absolute top-4 right-4 text-gray-400 hover:text-gray-700 cursor-pointer"
+              aria-label="Close"
+            >
+              <X className="w-6 h-6" />
+            </button>
+            <div className="flex items-center gap-4 mb-6">
+              <div className="w-16 h-16 rounded-full bg-blue-100 flex items-center justify-center text-2xl font-bold text-blue-700">
+                {viewingBranch.branchName
+                  .split(" ")
+                  .map((n) => n[0])
+                  .join("")}
+              </div>
+              <div>
+                <div className="flex items-center gap-2">
+                  <h2 className="text-2xl font-bold text-gray-900">
+                    {viewingBranch.branchName}
+                  </h2>
+                </div>
+                <div className="text-gray-500 text-sm mt-1">
+                  {viewingBranch.city}
+                </div>
+              </div>
+            </div>
+            <div className="space-y-3 mb-6">
+              <div className="flex items-center gap-2 text-gray-700">
+                <svg
+                  className="w-5 h-5"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  viewBox="0 0 24 24"
+                >
+                  <path d="M12 8v4l3 3" />
+                </svg>
+                <span>
+                  Total Deposits: $
+                  {viewingBranch.totalDeposits?.toLocaleString() || 0}
+                </span>
+              </div>
+              <div className="flex items-center gap-2 text-gray-700">
+                <svg
+                  className="w-5 h-5"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  viewBox="0 0 24 24"
+                >
+                  <path d="M12 8v4l3 3" />
+                </svg>
+                <span>
+                  Total Withdrawals: $
+                  {viewingBranch.totalWithdrawals?.toLocaleString() || 0}
+                </span>
+              </div>
+              <div className="flex items-center gap-2 text-gray-700">
+                <svg
+                  className="w-5 h-5"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  viewBox="0 0 24 24"
+                >
+                  <path d="M12 8v4l3 3" />
+                </svg>
+                <span>
+                  Total Loans: $
+                  {viewingBranch.totalLoans?.toLocaleString() || 0}
+                </span>
+              </div>
+              <div className="flex items-center gap-2 text-gray-700">
+                <svg
+                  className="w-5 h-5"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  viewBox="0 0 24 24"
+                >
+                  <path d="M8 7V3m8 4V3M3 11h18M5 19h14a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2Z" />
+                </svg>
+                <span>
+                  Last Updated:{" "}
+                  {viewingBranch.updatedAt
+                    ? new Date(viewingBranch.updatedAt).toLocaleString()
+                    : "-"}
+                </span>
+              </div>
+            </div>
           </div>
         </div>
       )}

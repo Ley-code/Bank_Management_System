@@ -3,16 +3,28 @@ import { PrimaryGeneratedColumn, Column, ManyToOne, JoinColumn } from "typeorm";
 import { Loan } from "./loan.entity";
 
 @Entity()
-export class Payment{
-    @PrimaryGeneratedColumn()
-    paymentNumber: number;
+export class Payment {
+  @PrimaryGeneratedColumn('uuid')
+  id: string;
 
-    @Column({ type: 'date' })
-    paymentDate: Date;
+  @ManyToOne(() => Loan, loan => loan.payments, { onDelete: 'CASCADE' })
+  loan: Loan;
 
-    @Column({ type: 'decimal', precision: 10, scale: 2 })
-    paymentAmount: number;
+  @Column({ type: 'decimal', precision: 15, scale: 2 })
+  amount: number;
 
-    @ManyToOne(() => Loan, loan => loan.payments, { nullable: false })
-    loan: Loan;
+  @Column({ type: 'timestamp' })
+  dueDate: Date;
+
+  @Column({ type: 'timestamp', nullable: true })
+  paidAt?: Date;
+
+  @Column({ default: false })
+  isPaid: boolean;
+
+  @Column({ default: false })
+  isOverdue: boolean;
+
+  @Column({ type: 'text', nullable: true })
+  remarks?: string;
 }

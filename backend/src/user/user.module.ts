@@ -7,8 +7,10 @@ import { Customer } from 'src/core/entities/customer.entity';
 import { Transaction } from 'src/core/entities/transaction.entity';
 import { Branch } from 'src/core/entities/branch.entity';
 import { LoanRequest } from 'src/core/entities/loanRequest.entity';
+import { PaymentModule } from './payment/payment.module';
+import { AppNotification } from 'src/core/entities/notification.entity';
 @Module({
-  imports: [TypeOrmModule.forFeature([Account,Customer,Transaction, Branch, LoanRequest])],
+  imports: [TypeOrmModule.forFeature([Account,Customer,Transaction, Branch, LoanRequest, AppNotification]), PaymentModule],
   controllers: [UserController],
   providers: [UserService]
 })

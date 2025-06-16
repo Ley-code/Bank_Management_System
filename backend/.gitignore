@@ -2,7 +2,7 @@
 /dist
 /node_modules
 /build
-
+/src/core/database
 # Logs
 logs
 *.log
