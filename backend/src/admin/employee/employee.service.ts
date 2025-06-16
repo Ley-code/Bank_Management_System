@@ -2,9 +2,10 @@ import { BadRequestException, Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Branch } from 'src/core/entities/branch.entity';
 import { Employee } from 'src/core/entities/employee.entity';
-import { Repository } from 'typeorm';
+import { In, Repository } from 'typeorm';
 import { CreateEmployeeDto } from './dto/employeedto';
 import { UpdateEmployeeDto } from './dto/updateemployeedto';
+import { Department } from 'src/core/entities/department.entity';
 
 @Injectable()
 export class EmployeeService {
@@ -13,11 +14,14 @@ export class EmployeeService {
     private readonly employeeRepository: Repository<Employee>,
     @InjectRepository(Branch)
     private readonly branchRepository: Repository<Branch>,
+
+    @InjectRepository(Department)
+    private readonly departmentRepository: Repository<Department>,
   ) {}
   async getAllEmployees() {
     // This is a placeholder implementation. Replace with actual database logic.
     const employees = await this.employeeRepository.find({
-      relations: ['branch', 'supervisor'],
+      relations: ['branch', 'supervisor','department'],
     });
     console.log('Employees:');
     return {
@@ -36,6 +40,7 @@ export class EmployeeService {
           ? employee.supervisor.fullName
           : 'No supervisor assigned',
         salary: employee.salary,
+        department: employee.department.name,
         dateOfJoining: employee.createdAt.toISOString().split('T')[0], // Format date to YYYY-MM-DD
       })),
       message:
@@ -68,6 +73,7 @@ export class EmployeeService {
           ? employee.supervisor.fullName
           : 'No supervisor assigned',
         salary: employee.salary,
+        department: employee.department.name,
         dateOfJoining: employee.createdAt.toISOString().split('T')[0], // Format date to YYYY-MM-DD
       },
       message: 'Employee retrieved successfully',
@@ -96,6 +102,14 @@ export class EmployeeService {
       throw new BadRequestException('Branch not found');
     }
 
+    const department = await this.departmentRepository.findOne({
+      where: { name: createEmployeeDto.departmentName},
+    });
+
+    if (!department) {
+      throw new BadRequestException('Department not found');
+    }
+
     let supervisor: Employee | undefined = undefined;
     if (createEmployeeDto.supervisorId) {
       supervisor =
@@ -103,10 +117,12 @@ export class EmployeeService {
           where: { id: createEmployeeDto.supervisorId },
         })) || undefined;
     }
+    
 
     // Create the employee and associate it with the branch and supervisor
     const employee = this.employeeRepository.create({
       ...createEmployeeDto,
+      department: department,
       branch: branch,
       supervisor,
       createdAt: new Date(),

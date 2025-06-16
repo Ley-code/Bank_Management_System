@@ -13,9 +13,10 @@ import { Branch } from 'src/core/entities/branch.entity';
 import { EmployeeModule } from './employee/employee.module';
 import { LoansModule } from './loans/loan.module';
 import { AppNotification } from 'src/core/entities/notification.entity';
+import { DepartmentModule } from './department/department.module';
 
 @Module({
-    imports: [TypeOrmModule.forFeature([Transaction, Account,Branch,AppNotification]), AccountsModule,CustomerModule, BranchModule, DashboardModule, EmployeeModule, LoansModule],
+    imports: [TypeOrmModule.forFeature([Transaction, Account,Branch,AppNotification]), AccountsModule,CustomerModule, BranchModule, DashboardModule, EmployeeModule, LoansModule, DepartmentModule],
     controllers: [AdminController],
     providers: [AdminService],
     exports: [],
