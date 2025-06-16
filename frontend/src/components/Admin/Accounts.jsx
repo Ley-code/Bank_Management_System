@@ -285,7 +285,7 @@ const Accounts = () => {
         customerID: selectedCustomer.id,
         accountType: data.accountType,
         currencyCode: data.currencyCode,
-        initialBalance: parseFloat(data.initialBalance),
+        balance: parseFloat(data.initialBalance),
         branchName: data.branchName,
       };
 

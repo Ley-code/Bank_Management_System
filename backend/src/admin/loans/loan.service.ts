@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Loan } from 'src/core/entities/loan.entity';
 import { LoanRequest, LoanRequestStatus, LoanType } from 'src/core/entities/loanRequest.entity';
@@ -7,6 +7,7 @@ import { AcceptLoanRequestDto } from './dto/acceptLoanRequestdto';
 import { addMonths } from 'date-fns';
 import { BusinessLogicService } from 'src/core/business/BusinessLogic';
 import { RejectLoanRequestDto } from './dto/rejectLoanRequestdto';
+import { Payment } from 'src/core/entities/payment.entity';
 
 @Injectable()
 export class LoanService {
@@ -16,9 +17,11 @@ export class LoanService {
         private readonly loanRequestsRepository: Repository<LoanRequest>,
         @InjectRepository(Loan)
         private readonly loanRepository: Repository<Loan>,
+        @InjectRepository(Payment)
+        private readonly paymentRepository: Repository<Payment>,
         private readonly businessService: BusinessLogicService, // Assuming you have a BusinessService to handle business logic
-        
-    ){}
+
+    ) { }
     async acceptLoanRequest({ loanRequestId, loanDurationInMonths }: AcceptLoanRequestDto) {
         const loanRequest = await this.loanRequestsRepository.findOne({
             where: { id: loanRequestId },
@@ -27,6 +30,9 @@ export class LoanService {
 
         if (!loanRequest) {
             throw new NotFoundException('Loan request not found');
+        }
+        if (loanRequest.status !== LoanRequestStatus.PENDING) {
+            throw new BadRequestException('Loan request is not in pending status. it is either accepted or rejected');
         }
 
         loanRequest.status = LoanRequestStatus.APPROVED;
@@ -37,18 +43,32 @@ export class LoanService {
 
         const interestRate = 0.07; // TODO: Replace with dynamic rate if needed
         const annualRate = 7; // TODO: Replace with dynamic rate if needed
-
+        const monthlyPayment = this.businessService.calculateMonthlyPayment(loanRequest.amount, annualRate, loanDurationInMonths);
+        const totalPayable = this.businessService.calculateTotalPayable(loanRequest.amount, interestRate);
         const loan = this.loanRepository.create({
             dueDate,
             issuedAt,
             loanDurationInMonths,
-            totalPayable: this.businessService.calculateTotalPayable(loanRequest.amount, interestRate),
-            monthlyPayment: this.businessService.calculateMonthlyPayment(loanRequest.amount, annualRate, loanDurationInMonths),
+            totalPayable,
+            monthlyPayment,
             account: loanRequest.account,
             loanRequest,
         });
 
         await this.loanRepository.save(loan);
+
+        for (let i = 1; i <= loanDurationInMonths; i++) {
+            const dueDate = addMonths(loan.issuedAt, i); // use date-fns or moment
+            const payment = this.paymentRepository.create({
+                loan,
+                dueDate,
+                amount: monthlyPayment,
+                isPaid: false,
+                isOverdue: false,
+            });
+            await this.paymentRepository.save(payment);
+        }
+
 
         return {
             status: 'success',
@@ -58,12 +78,13 @@ export class LoanService {
                 customerName: loanRequest.account.customer.fullName,
                 amountApproved: loanRequest.amount,
                 loanType: loanRequest.loanType,
+                payments: loan.payments
             },
         };
     }
     async rejectLoanRequest(rejectLoanRequestdto: RejectLoanRequestDto) {
         const loanRequest = await this.loanRequestsRepository.findOne({
-            where: { id:  rejectLoanRequestdto.loanRequestId },
+            where: { id: rejectLoanRequestdto.loanRequestId },
             relations: ['account', 'account.customer'],
         });
         if (!loanRequest) {
@@ -78,12 +99,12 @@ export class LoanService {
 
 
     }
-    async getAllLoanRequests(){
+    async getAllLoanRequests() {
         const loanRequests = await this.loanRequestsRepository.find({
             relations: ['account']
         })
 
-        if(loanRequests.length == 0){
+        if (loanRequests.length == 0) {
             throw new NotFoundException('No loan requests');
         }
 
@@ -99,7 +120,7 @@ export class LoanService {
                 status: loanrequest.status
             })),
             message: 'Loan Request fetched successfully',
-            
+
         }
     }
     async getAllLoans() {
@@ -108,7 +129,11 @@ export class LoanService {
         });
 
         if (loans.length === 0) {
-            throw new NotFoundException('No loans found');
+            return {
+                status: 'error',
+                message: 'No loans found',
+                data: [],
+            };
         }
 
         return {
@@ -128,5 +153,5 @@ export class LoanService {
             message: 'Loans fetched successfully',
         };
     }
-    
+
 }

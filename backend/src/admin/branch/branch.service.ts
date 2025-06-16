@@ -35,10 +35,21 @@ export class BranchService {
         };
     }
     async getAllBranches() {
-        const branches = await this.branchRepository.find();
+        const branches = await this.branchRepository.find({
+            relations: ['accounts', 'employees'],
+        });
         return {
             status: 'success',
-            data: branches,
+            data: branches.map((branch) => ({
+                branchName: branch.branchName,
+                city: branch.city,
+                totalDeposits: branch.totalDeposits,
+                totalWithdrawals: branch.totalWithdrawals,
+                totalLoans: branch.totalLoans,
+                totalAccounts: branch.accounts ? branch.accounts.length : 0,
+                totalemployee: branch.employees ? branch.employees.length : 0,
+                createdAt: branch.createdAt.toISOString().split('T')[0], // Format date to YYYY-MM-DD
+            })),
             message: 'Branches retrieved successfully',
         };
     }

@@ -1,6 +1,7 @@
 import { Column, Entity, OneToMany, PrimaryGeneratedColumn } from "typeorm";
 import { Account } from "./account.entity";
 import { ManyToMany, JoinTable } from "typeorm";
+import { AppNotification } from "./notification.entity";
 
 @Entity()
 export class Customer {
@@ -29,5 +30,8 @@ export class Customer {
     // One customer can have many accounts
     @OneToMany(() => Account, account => account.customer)
     accounts: Account[];
+
+    @OneToMany(() => AppNotification, notification => notification.customer)
+    notifications: AppNotification[];
 
 }
