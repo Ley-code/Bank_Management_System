@@ -21,7 +21,7 @@ const Transfer = () => {
   useEffect(() => {
     const fetchAccounts = async () => {
       try {
-        const customerId = "62a2645c-5367-4734-85dc-c2ac2dbbde2f"; // Use the same customer ID as Dashboard
+        const customerId = "d15c6c1c-8e38-422f-a221-ff02afc98d86"; // Use the same customer ID as Dashboard
         
         // Fetch user accounts
         const accountsResponse = await fetch(`http://localhost:8000/api/user/${customerId}/accounts`);

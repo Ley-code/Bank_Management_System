@@ -1,93 +1,105 @@
-import { useState, useEffect } from 'react';
-import { X, AlertCircle, CheckCircle } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import axios from 'axios';
+import './Loan.css';
 
-const Loan = ({ isOpen, onClose }) => {
-  // State for form data
-  const [formData, setFormData] = useState({
-    loanType: '',
-    amount: '',
-    purpose: '',
-    duration: '',
-    monthlyIncome: '',
-    employmentStatus: '',
-    employerName: '',
-    employmentDuration: '',
-    accountNumber: '' // Added account selection
-  });
+const PAGE_SIZE = 5;
 
-  // State for accounts list
-  const [accounts, setAccounts] = useState([]);
-  
-  // State for loan requests and accepted loans
-  const [loanRequests, setLoanRequests] = useState([]);
+const Loan = () => {
+  const [requestedLoans, setRequestedLoans] = useState([]);
   const [acceptedLoans, setAcceptedLoans] = useState([]);
+  const [accounts, setAccounts] = useState([]);
+  const [isModalVisible, setIsModalVisible] = useState(false);
+  const [isPaymentModalVisible, setIsPaymentModalVisible] = useState(false);
+  const [selectedLoan, setSelectedLoan] = useState(null);
+  const [availablePayments, setAvailablePayments] = useState([]);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [selectedPayment, setSelectedPayment] = useState(null);
+  const [selectedAccountId, setSelectedAccountId] = useState('');
+  const [formData, setFormData] = useState({
+    accountNumber: '',
+    amount: '',
+    loanType: '',
+    purpose: '',
+    loanDuration: '',
+    monthlyIncome: '',
+    employmentStatus: ''
+  });
+  const customerId = "d15c6c1c-8e38-422f-a221-ff02afc98d86";
 
-  // State for form messages and loading state
-  const [message, setMessage] = useState({ type: '', text: '' });
-  const [isLoading, setIsLoading] = useState(false);
+  // Fetch data
+  const fetchData = async () => {
+    try {
+      const [loansRes, accountsRes] = await Promise.all([
+        axios.get('http://localhost:8000/api/admin/loans'),
+        axios.get(`http://localhost:8000/api/user/${customerId}/accounts`),
+      ]);
+      
+      console.log("loansRes",loansRes);
+      console.log("accountsRes",accountsRes);
 
-  // Available loan types
-  const loanTypes = [
-    'Personal Loan',
-    'Home Loan',
-    'Car Loan',
-    'Business Loan',
-    'Education Loan'
-  ];
+      // Map active loans data
+      const mappedActiveLoans = Array.isArray(loansRes.data.data) ? loansRes.data.data.map(loan => ({
+        id: loan.loanId,
+        accountNumber: loan.accountNumber,
+        customerName: loan.customerName,
+        amount: loan.amountApproved,
+        loanType: loan.loanType,
+        monthlyPayment: loan.monthlyPayment,
+        totalPayable: loan.totalPayable,
+        dueDate: loan.dueDate,
+        issuedAt: loan.issuedAt,
+        status: loan.status
+      })) : [];
 
-  // Available employment statuses
-  const employmentStatuses = [
-    'Employed',
-    'Self-Employed',
-    'Business Owner',
-    'Retired',
-    'Student'
-  ];
+      console.log("Mapped active loans:", mappedActiveLoans);
+      setAcceptedLoans(mappedActiveLoans);
+      setAccounts(Array.isArray(accountsRes.data.data) ? accountsRes.data.data : []);
 
-  // Fetch accounts and loans data
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const customerId = "62a2645c-5367-4734-85dc-c2ac2dbbde2f"; // Use the same customer ID as other components
+      // Fetch loan requests for each account
+      const loanRequestsPromises = accountsRes.data.data.map(account => 
+        axios.get(`http://localhost:8000/api/user/${customerId}/loanRequests/${account.accountNumber}`)
+      );
+
+      const loanRequestsResponses = await Promise.all(loanRequestsPromises);
+      console.log("Raw loan requests responses:", loanRequestsResponses);
+      
+      // Manually map the loan requests data with only required fields
+      const allLoanRequests = loanRequestsResponses.flatMap(response => {
+        console.log("Processing response:", response.data);
+        if (!Array.isArray(response.data.data)) {
+          console.log("Not an array:", response.data);
+          return [];
+        }
         
-        // Fetch user accounts
-        const accountsResponse = await fetch(`http://localhost:8000/api/user/${customerId}/accounts`);
-        if (!accountsResponse.ok) {
-          throw new Error('Failed to fetch customer accounts');
-        }
-        const accountsData = await accountsResponse.json();
-        console.log("accountsData",accountsData); 
-        setAccounts(accountsData.data);
-
-        // Fetch loan requests
-        const loanRequestsResponse = await fetch(`http://localhost:8000/api/user/${customerId}/loans`);
-        if (loanRequestsResponse.ok) {
-          const requestsData = await loanRequestsResponse.json();
-          setLoanRequests(requestsData.data);
-        }
-
-        // Fetch accepted loans
-        const acceptedLoansResponse = await fetch(`http://localhost:8000/api/user/${customerId}/loans`);
-        if (acceptedLoansResponse.ok) {
-          const acceptedData = await acceptedLoansResponse.json();
-          setAcceptedLoans(acceptedData.data);
-        }
-      } catch (error) {
-        console.error("Error fetching data:", error);
-        setMessage({
-          type: 'error',
-          text: 'Failed to load data. Please try again.'
+        return response.data.data.map(loan => {
+          console.log("Processing loan:", loan);
+          return {
+            accountNumber: loan.accountNumber || '',
+            branch: loan.branch || 'Main Branch', // Default value if not provided
+            purpose: loan.purpose || '',
+            requestedAmount: loan.amount || loan.requestedAmount || '0.00',
+            requestedAt: loan.requestedAt || loan.createdAt || new Date().toISOString(),
+            status: loan.status || 'PENDING'
+          };
         });
-      }
-    };
-
-    if (isOpen) {
-      fetchData();
+      });
+      
+      console.log("Mapped loan requests:", allLoanRequests);
+      setRequestedLoans(allLoanRequests);
+    } catch (error) {
+      console.error('Error fetching data:', error);
+      alert('Failed to fetch data');
+      setAcceptedLoans([]);
+      setAccounts([]);
+      setRequestedLoans([]);
     }
-  }, [isOpen]);
+  };
 
-  // Handle form input changes
-  const handleChange = (e) => {
+  useEffect(() => {
+    fetchData();
+  }, []);
+
+  const handleInputChange = (e) => {
     const { name, value } = e.target;
     setFormData(prev => ({
       ...prev,
@@ -95,432 +107,370 @@ const Loan = ({ isOpen, onClose }) => {
     }));
   };
 
-  // Handle form submission
-  const handleSubmit = async (e) => {
+  const handleLoanApplication = async (e) => {
     e.preventDefault();
-    setIsLoading(true);
-    setMessage({ type: '', text: '' });
-
     try {
-      const response = await fetch('http://localhost:8000/api/user/loanRequest', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(formData)
-      });
-
-      const data = await response.json();
-      console.log("data",data);
-      if (!response.ok) {
-        throw new Error(data.message || 'Failed to submit loan application');
-      }
-
-      setMessage({
-        type: 'success',
-        text: 'Loan application submitted successfully! We will review your application and get back to you soon.'
-      });
-
-      // Reset form
-      setFormData({
-        loanType: '',
-        amount: '',
-        purpose: '',
-        duration: '',
-        monthlyIncome: '',
-        employmentStatus: '',
-        employerName: '',
-        employmentDuration: '',
-        accountNumber: ''
-      });
-
-      // Refresh loan requests
-      const loanRequestsResponse = await fetch(`http://localhost:8000/api/user/${customerId}/loans/pending`);
-      if (loanRequestsResponse.ok) {
-
-        const requestsData = await loanRequestsResponse.json();
-        console.log("loanRequests",requestsData);
-        setLoanRequests(requestsData.data);
-      }
-    } catch (error) {
-      setMessage({
-        type: 'error',
-        text: error.message || 'Failed to submit loan application. Please try again.'
-      });
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  // Handle loan payment
-  const handleLoanPayment = async (loanId, amount) => {
-    try {
-      const response = await fetch(`http://localhost:8000/api/user/payment`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ paymentId , accountId })
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.message || 'Failed to process loan payment');
-      }
-
-      // Refresh accepted loans
+      // Convert numeric fields to numbers
+      const requestData = {
+        ...formData,
+        amount: Number(formData.amount),
+        loanDuration: Number(formData.loanDuration),
+        monthlyIncome: Number(formData.monthlyIncome)
+      };
       
-
-      setMessage({
-        type: 'success',
-        text: 'Loan payment processed successfully!'
+      await axios.post('http://localhost:8000/api/user/loanRequest', requestData);
+      alert('Loan request submitted successfully');
+      setIsModalVisible(false);
+      setFormData({
+        accountNumber: '',
+        amount: '',
+        loanType: '',
+        purpose: '',
+        loanDuration: '',
+        monthlyIncome: '',
+        employmentStatus: ''
       });
+      fetchData();
     } catch (error) {
-      setMessage({
-        type: 'error',
-        text: error.message || 'Failed to process loan payment. Please try again.'
-      });
+      console.error('Error submitting loan request:', error);
+      alert('Failed to submit loan request');
     }
   };
 
-  if (!isOpen) return null;
+  const handleViewPayments = async (loan) => {
+    try {
+      setSelectedLoan(loan);
+      setSelectedPayment(null);
+      setSelectedAccountId('');
+      setCurrentPage(1);
+      const response = await axios.get(`http://localhost:8000/api/user/payments/${loan.id}`);
+      setAvailablePayments(response.data.data || []);
+      setIsPaymentModalVisible(true);
+    } catch (error) {
+      console.error('Error fetching payments:', error);
+      alert('Failed to fetch available payments');
+    }
+  };
+
+  const handleConfirmPayment = async () => {
+    if (!selectedPayment || !selectedAccountId) return;
+    try {
+      await axios.post('http://localhost:8000/api/user/payment', {
+        paymentId: selectedPayment.id,
+        accountNumber: selectedAccountId
+      });
+      alert('Payment confirmed successfully');
+      setIsPaymentModalVisible(false);
+      setSelectedPayment(null);
+      setSelectedAccountId('');
+      fetchData();
+    } catch (error) {
+      console.error('Error confirming payment:', error);
+      alert('Failed to confirm payment');
+    }
+  };
+
+  // Pagination logic
+  const totalPages = Math.ceil(availablePayments.length / PAGE_SIZE);
+  const paginatedPayments = availablePayments.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white rounded-lg shadow-xl w-full max-w-6xl max-h-[90vh] overflow-y-auto">
-        {/* Header */}
-        <div className="flex justify-between items-center p-6 border-b">
-          <h2 className="text-2xl font-bold text-gray-900">Loan Management</h2>
-          <button
-            onClick={onClose}
-            className="text-gray-500 hover:text-gray-700"
-          >
-            <X className="w-6 h-6" />
-          </button>
+    <div className="loan-container">
+      <div className="loan-header">
+        <h2>Loan Management</h2>
+        <button 
+          className="apply-button"
+          onClick={() => setIsModalVisible(true)}
+        >
+          Apply for Loan
+        </button>
+      </div>
+
+      <div className="loans-section">
+        <div className="loans-card">
+          <h3>Requested Loans</h3>
+          <table className="loans-table">
+            <thead>
+              <tr>
+                <th>Account Number</th>
+                <th>Branch</th>
+                <th>Purpose</th>
+                <th>Amount</th>
+                <th>Request Date</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              {Array.isArray(requestedLoans) && requestedLoans.map((loan, index) => (
+                <tr key={index}>
+                  <td>{loan.accountNumber}</td>
+                  <td>{loan.branch}</td>
+                  <td>{loan.purpose}</td>
+                  <td>${loan.requestedAmount}</td>
+                  <td>{loan.requestedAt ? new Date(loan.requestedAt).toLocaleDateString() : 'N/A'}</td>
+                  <td>{loan.status}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
 
-        {/* Content */}
-        <div className="p-6">
-          {/* Message display */}
-          {message.text && (
-            <div
-              className={`p-4 mb-6 rounded-md ${
-                message.type === 'success'
-                  ? 'bg-green-50 text-green-700'
-                  : 'bg-red-50 text-red-700'
-              }`}
-            >
-              {message.text}
-            </div>
-          )}
+        <div className="loans-card">
+          <h3>Active Loans</h3>
+          <table className="loans-table">
+            <thead>
+              <tr>
+                <th>Account Number</th>
+                <th>Customer Name</th>
+                <th>Loan Type</th>
+                <th>Amount</th>
+                <th>Monthly Payment</th>
+                <th>Total Payable</th>
+                <th>Due Date</th>
+                <th>Status</th>
+                <th>Action</th>
+              </tr>
+            </thead>
+            <tbody>
+              {Array.isArray(acceptedLoans) && acceptedLoans.map(loan => (
+                <tr key={loan.id}>
+                  <td>{loan.accountNumber}</td>
+                  <td>{loan.customerName}</td>
+                  <td>{loan.loanType}</td>
+                  <td>${Number(loan.amount).toFixed(2)}</td>
+                  <td>${Number(loan.monthlyPayment).toFixed(2)}</td>
+                  <td>${Number(loan.totalPayable).toFixed(2)}</td>
+                  <td>{loan.dueDate ? new Date(loan.dueDate).toLocaleDateString() : 'N/A'}</td>
+                  <td>{loan.status}</td>
+                  <td>
+                    <button 
+                      className="view-payments-button"
+                      onClick={() => handleViewPayments(loan)}
+                    >
+                      View Payments
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
 
-          {/* Loan Application Form */}
-          <div className="mb-8">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">Apply for a Loan</h3>
-            <form onSubmit={handleSubmit} className="space-y-4">
-              {/* Account Selection */}
-              <div>
-                <label htmlFor="accountNumber" className="block text-sm font-medium text-gray-700">
-                  Select Account
-                </label>
+      {/* Payment Modal */}
+      {isPaymentModalVisible && selectedLoan && (
+        <div className="modal-overlay">
+          <div className="modal-content payment-modal-content">
+            <div className="modal-header">
+              <h3>Payments for Loan <span className="mono">{selectedLoan.id}</span></h3>
+              <button className="close-button" onClick={() => {
+                setIsPaymentModalVisible(false);
+                setSelectedLoan(null);
+                setAvailablePayments([]);
+                setSelectedPayment(null);
+                setSelectedAccountId('');
+              }}>×</button>
+            </div>
+            {!selectedPayment ? (
+              <>
+                <table className="payments-table">
+                  <thead>
+                    <tr>
+                      <th>Payment ID</th>
+                      <th>Amount</th>
+                      <th>Due Date</th>
+                      <th>Status</th>
+                      <th>Action</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {paginatedPayments.map(payment => (
+                      <tr key={payment.id}>
+                        <td className="mono">{payment.id}</td>
+                        <td>${Number(payment.amount).toFixed(2)}</td>
+                        <td>{new Date(payment.dueDate).toLocaleDateString()}</td>
+                        <td>{payment.status}</td>
+                        <td>
+                          <button className="details-button" onClick={() => setSelectedPayment(payment)}>
+                            View Details
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+                {/* Pagination Controls */}
+                <div className="pagination-controls">
+                  <button disabled={currentPage === 1} onClick={() => setCurrentPage(p => p - 1)}>&lt;</button>
+                  <span>Page {currentPage} of {totalPages}</span>
+                  <button disabled={currentPage === totalPages} onClick={() => setCurrentPage(p => p + 1)}>&gt;</button>
+                </div>
+              </>
+            ) : (
+              <div className="payment-details">
+                <h4>Payment Details</h4>
+                <div className="details-row"><span>Payment ID:</span> <span className="mono">{selectedPayment.id}</span></div>
+                <div className="details-row"><span>Amount:</span> <span>${Number(selectedPayment.amount).toFixed(2)}</span></div>
+                <div className="details-row"><span>Due Date:</span> <span>{new Date(selectedPayment.dueDate).toLocaleDateString()}</span></div>
+                <div className="details-row"><span>Status:</span> <span>{selectedPayment.status}</span></div>
+                <div className="details-row">
+                  <span>Pay from Account:</span>
+                  <select
+                    value={selectedAccountId}
+                    onChange={e => setSelectedAccountId(e.target.value)}
+                  >
+                    <option value="">Select Account</option>
+                    {accounts.map(account => (
+                      <option key={account.id} value={account.accountNumber}>
+                        {account.accountNumber} - ${Number(account.balance).toFixed(2)}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div className="modal-buttons">
+                  <button
+                    className="submit-button"
+                    disabled={!selectedAccountId}
+                    onClick={handleConfirmPayment}
+                  >
+                    Confirm Payment
+                  </button>
+                  <button
+                    className="cancel-button"
+                    onClick={() => {
+                      setSelectedPayment(null);
+                      setSelectedAccountId('');
+                    }}
+                  >
+                    Back
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {isModalVisible && (
+        <div className="modal-overlay">
+          <div className="modal-content">
+            <h3>Apply for Loan</h3>
+            <form onSubmit={handleLoanApplication}>
+              <div className="form-group">
+                <label>Account Number:</label>
                 <select
-                  id="accountNumber"
                   name="accountNumber"
                   value={formData.accountNumber}
-                  onChange={handleChange}
-                  className="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md"
+                  onChange={handleInputChange}
                   required
                 >
                   <option value="">Select an account</option>
-                  {accounts.map(account => (
-                    <option key={account.accountNumber} value={account.accountNumber}>
-                      {account.accountType} - {account.accountNumber} (Balance: ${account.balance})
+                  {Array.isArray(accounts) && accounts.map(account => (
+                    <option key={account.id} value={account.accountNumber}>
+                      {account.accountNumber} - ${account.balance?.toFixed(2) || '0.00'}
                     </option>
                   ))}
                 </select>
               </div>
 
-              {/* Existing form fields */}
-              <div>
-                <label htmlFor="loanType" className="block text-sm font-medium text-gray-700">
-                  Loan Type
-                </label>
-                <select
-                  id="loanType"
-                  name="loanType"
-                  value={formData.loanType}
-                  onChange={handleChange}
-                  className="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md"
-                  required
-                >
-                  <option value="">Select a loan type</option>
-                  {loanTypes.map((type) => (
-                    <option key={type} value={type}>
-                      {type}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              {/* Loan Amount */}
-              <div>
-                <label
-                  htmlFor="amount"
-                  className="block text-sm font-medium text-gray-700"
-                >
-                  Loan Amount
-                </label>
-                <div className="mt-1 relative rounded-md shadow-sm">
-                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                    <span className="text-gray-500 sm:text-sm">$</span>
-                  </div>
-                  <input
-                    type="number"
-                    name="amount"
-                    id="amount"
-                    value={formData.amount}
-                    onChange={handleChange}
-                    className="focus:ring-blue-500 focus:border-blue-500 block w-full pl-7 pr-12 sm:text-sm border-gray-300 rounded-md"
-                    placeholder="0.00"
-                    required
-                    min="1000"
-                  />
-                </div>
-              </div>
-
-              {/* Loan Purpose */}
-              <div>
-                <label
-                  htmlFor="purpose"
-                  className="block text-sm font-medium text-gray-700"
-                >
-                  Purpose of Loan
-                </label>
-                <textarea
-                  id="purpose"
-                  name="purpose"
-                  rows={3}
-                  value={formData.purpose}
-                  onChange={handleChange}
-                  className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-                  required
-                />
-              </div>
-
-              {/* Loan Duration */}
-              <div>
-                <label
-                  htmlFor="duration"
-                  className="block text-sm font-medium text-gray-700"
-                >
-                  Loan Duration (months)
-                </label>
+              <div className="form-group">
+                <label>Loan Amount:</label>
                 <input
                   type="number"
-                  name="duration"
-                  id="duration"
-                  value={formData.duration}
-                  onChange={handleChange}
-                  className="mt-1 focus:ring-blue-500 focus:border-blue-500 block w-full shadow-sm sm:text-sm border-gray-300 rounded-md"
+                  name="amount"
+                  value={formData.amount}
+                  onChange={handleInputChange}
                   required
-                  min="1"
-                  max="360"
+                  placeholder="Enter amount"
+                  min="0"
+                  step="0.01"
                 />
               </div>
 
-              {/* Monthly Income */}
-              <div>
-                <label
-                  htmlFor="monthlyIncome"
-                  className="block text-sm font-medium text-gray-700"
+              <div className="form-group">
+                <label>Loan Type:</label>
+                <select
+                  name="loanType"
+                  value={formData.loanType}
+                  onChange={handleInputChange}
+                  required
                 >
-                  Monthly Income
-                </label>
-                <div className="mt-1 relative rounded-md shadow-sm">
-                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                    <span className="text-gray-500 sm:text-sm">$</span>
-                  </div>
-                  <input
-                    type="number"
-                    name="monthlyIncome"
-                    id="monthlyIncome"
-                    value={formData.monthlyIncome}
-                    onChange={handleChange}
-                    className="focus:ring-blue-500 focus:border-blue-500 block w-full pl-7 pr-12 sm:text-sm border-gray-300 rounded-md"
-                    placeholder="0.00"
-                    required
-                    min="0"
-                  />
-                </div>
+                  <option value="">Select loan type</option>
+                  <option value="personal">Personal Loan</option>
+                  <option value="business">Business Loan</option>
+                  <option value="mortgage">Mortgage</option>
+                </select>
               </div>
 
-              {/* Employment Status */}
-              <div>
-                <label
-                  htmlFor="employmentStatus"
-                  className="block text-sm font-medium text-gray-700"
-                >
-                  Employment Status
-                </label>
+              <div className="form-group">
+                <label>Purpose:</label>
+                <textarea
+                  name="purpose"
+                  value={formData.purpose}
+                  onChange={handleInputChange}
+                  required
+                  placeholder="Describe the purpose of your loan"
+                  rows="3"
+                />
+              </div>
+
+              <div className="form-group">
+                <label>Loan Duration (months):</label>
+                <input
+                  type="number"
+                  name="loanDuration"
+                  value={formData.loanDuration}
+                  onChange={handleInputChange}
+                  required
+                  placeholder="Enter loan duration in months"
+                  min="1"
+                />
+              </div>
+
+              <div className="form-group">
+                <label>Monthly Income:</label>
+                <input
+                  type="number"
+                  name="monthlyIncome"
+                  value={formData.monthlyIncome}
+                  onChange={handleInputChange}
+                  required
+                  placeholder="Enter your monthly income"
+                  min="0"
+                  step="0.01"
+                />
+              </div>
+
+              <div className="form-group">
+                <label>Employment Status:</label>
                 <select
-                  id="employmentStatus"
                   name="employmentStatus"
                   value={formData.employmentStatus}
-                  onChange={handleChange}
-                  className="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md"
+                  onChange={handleInputChange}
                   required
                 >
                   <option value="">Select employment status</option>
-                  {employmentStatuses.map((status) => (
-                    <option key={status} value={status}>
-                      {status}
-                    </option>
-                  ))}
+                  <option value="employed">Employed</option>
+                  <option value="self-employed">Self Employed</option>
+                  <option value="business-owner">Business Owner</option>
+                  <option value="retired">Retired</option>
                 </select>
               </div>
 
-              {/* Employer Name */}
-              <div>
-                <label
-                  htmlFor="employerName"
-                  className="block text-sm font-medium text-gray-700"
+              <div className="form-buttons">
+                <button type="submit" className="submit-button">Submit Application</button>
+                <button 
+                  type="button" 
+                  className="cancel-button"
+                  onClick={() => setIsModalVisible(false)}
                 >
-                  Employer Name
-                </label>
-                <input
-                  type="text"
-                  name="employerName"
-                  id="employerName"
-                  value={formData.employerName}
-                  onChange={handleChange}
-                  className="mt-1 focus:ring-blue-500 focus:border-blue-500 block w-full shadow-sm sm:text-sm border-gray-300 rounded-md"
-                  required
-                />
+                  Cancel
+                </button>
               </div>
-
-              {/* Employment Duration */}
-              <div>
-                <label
-                  htmlFor="employmentDuration"
-                  className="block text-sm font-medium text-gray-700"
-                >
-                  Employment Duration (years)
-                </label>
-                <input
-                  type="number"
-                  name="employmentDuration"
-                  id="employmentDuration"
-                  value={formData.employmentDuration}
-                  onChange={handleChange}
-                  className="mt-1 focus:ring-blue-500 focus:border-blue-500 block w-full shadow-sm sm:text-sm border-gray-300 rounded-md"
-                  required
-                  min="0"
-                />
-              </div>
-
-              <button
-                type="submit"
-                disabled={isLoading}
-                className={`w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 ${
-                  isLoading ? 'opacity-50 cursor-not-allowed' : ''
-                }`}
-              >
-                {isLoading ? 'Submitting...' : 'Submit Application'}
-              </button>
             </form>
           </div>
-
-          {/* Pending Loan Requests Table */}
-          <div className="mb-8">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">Pending Loan Requests</h3>
-            <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Loan Type</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Purpose</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Account</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                  </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
-                  {loanRequests.map((loan) => (
-                    <tr key={loan.id}>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{loan.loanType}</td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">${loan.amount}</td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{loan.purpose}</td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{loan.accountNumber}</td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-yellow-100 text-yellow-800">
-                          Pending
-                        </span>
-                      </td>
-                    </tr>
-                  ))}
-                  {loanRequests.length === 0 && (
-                    <tr>
-                      <td colSpan="5" className="px-6 py-4 text-center text-sm text-gray-500">
-                        No pending loan requests
-                      </td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
-          </div>
-
-          {/* Accepted Loans Table */}
-          <div>
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">Active Loans</h3>
-            <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Loan Type</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Start Date</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">End Date</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Interest</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Account</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
-                  </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
-                  {acceptedLoans.map((loan) => (
-                    <tr key={loan.id}>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{loan.loanType}</td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">${loan.amount}</td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{new Date(loan.startDate).toLocaleDateString()}</td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{new Date(loan.endDate).toLocaleDateString()}</td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{loan.interestRate}%</td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{loan.accountNumber}</td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {loan.paymentDue && (
-                          <button
-                            onClick={() => handleLoanPayment(loan.id, loan.monthlyPayment)}
-                            className="inline-flex items-center px-3 py-1 border border-transparent text-sm leading-4 font-medium rounded-md text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
-                          >
-                            Pay ${loan.monthlyPayment}
-                          </button>
-                        )}
-                      </td>
-                    </tr>
-                  ))}
-                  {acceptedLoans.length === 0 && (
-                    <tr>
-                      <td colSpan="7" className="px-6 py-4 text-center text-sm text-gray-500">
-                        No active loans
-                      </td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
-          </div>
         </div>
-      </div>
+      )}
     </div>
   );
 };

@@ -31,11 +31,11 @@ export default registerAs('database', (): TypeOrmModuleOptions => {
     synchronize: true,
     autoLoadEntities: true,
     logging: true,
-    ssl:{
-      rejectUnauthorized: false, // This is important for self-signed certificates
-      // You can also provide a certificate if needed
-      // ca: process.env.DATABASE_SSL_CA ? process.env.DATABASE_SSL_CA : undefined,
-    }
+    // ssl:{
+    //   rejectUnauthorized: false, // This is important for self-signed certificates
+    //   // You can also provide a certificate if needed
+    //   // ca: process.env.DATABASE_SSL_CA ? process.env.DATABASE_SSL_CA : undefined,
+    // }
   };
 });
 
