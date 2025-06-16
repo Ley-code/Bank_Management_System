@@ -26,7 +26,7 @@ const Loans = () => {
   // ---- State: loan lists and UI controls ----
   const [loanApplications, setLoanApplications] = useState([]);
   const [acceptedLoans, setAcceptedLoans] = useState([]);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
   // ---- State: Search and Filter ----
@@ -128,8 +128,8 @@ const Loans = () => {
   // ---- Render loading or error states ----
   if (loading) {
     return (
-      <div className="text-center p-6">
-        <span className="text-gray-500">Loading loans...</span>
+      <div className="flex justify-center items-center h-64">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
       </div>
     );
   }
@@ -158,8 +158,8 @@ const Loans = () => {
           />
         </div>
 
-        <div className="overflow-x-hidden">
-          <table className="w-full table-auto bg-gray-50 rounded-lg shadow-sm">
+        <div className="overflow-x-auto w-full">
+          <table className="w-full min-w-[1100px] table-auto bg-gray-50 rounded-lg shadow-sm">
             <thead className="bg-gray-100">
               <tr>
                 <th className="p-3 text-left text-sm font-semibold text-gray-700">
@@ -276,8 +276,8 @@ const Loans = () => {
           </div>
         </div>
 
-        <div className="overflow-x-hidden">
-          <table className="w-full table-auto bg-gray-50 rounded-lg shadow-sm">
+        <div className="overflow-x-auto w-full">
+          <table className="w-full min-w-[1100px] table-auto bg-gray-50 rounded-lg shadow-sm">
             <thead className="bg-gray-100">
               <tr>
                 <th className="p-3 text-left text-sm font-semibold text-gray-700">

@@ -1,7 +1,9 @@
 // src/components/Admin/Accounts.jsx
 
 import axios from "axios";
-import React, { useEffect, useState } from "react";
+import { Edit2, Eye, Trash2 } from "lucide-react";
+import React, { useEffect, useRef, useState } from "react";
+import ReactDOM from "react-dom";
 import { useForm } from "react-hook-form";
 
 /**
@@ -48,9 +50,11 @@ const Accounts = () => {
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
   const [isDepositModalOpen, setIsDepositModalOpen] = useState(false);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
 
   // ---- Selected Account for Detail/Edit ----
   const [selectedAccount, setSelectedAccount] = useState(null);
+  const [editingAccount, setEditingAccount] = useState(null);
 
   // ---- React Hook Form for Add/Edit Account ----
   const {
@@ -84,16 +88,55 @@ const Accounts = () => {
     headers: { "Content-Type": "application/json" },
   });
 
+  // Add loading state
+  const [loading, setLoading] = useState(true);
+
+  // Add dropdown state
+  const [dropdownOpenId, setDropdownOpenId] = useState(null);
+  const [dropdownPosition, setDropdownPosition] = useState({ top: 0, left: 0 });
+  const dropdownBtnRefs = useRef({});
+
+  // ---- Fetch Accounts: Move to top-level ----
+  const fetchAccounts = async () => {
+    setLoading(true);
+    try {
+      const response = await axios.get(
+        "http://localhost:8000/api/admin/accounts"
+      );
+      if (response.data && response.data.data) {
+        const transformedAccounts = response.data.data.map((account) => ({
+          id: account.accountNumber,
+          accountNumber: account.accountNumber,
+          userName: account.accountHolder,
+          accountType: account.accountType,
+          branch: account.branchName,
+          balance: account.accountBalance,
+          dateOpened: account.accountDateCreated,
+          status: account.accountStatus,
+        }));
+        setAccounts(transformedAccounts);
+      } else {
+        setAccounts([]);
+        console.log("No accounts found in the database");
+      }
+    } catch (error) {
+      console.error("Error fetching accounts:", error);
+      setAccounts([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   // Fetch all accounts for autocomplete when modal opens
   useEffect(() => {
     if (isAddModalOpen) {
-      fetch("http://localhost:8000/api/admin/accounts", {
-        method: "GET",
-        headers: { "Content-Type": "application/json" },
-      })
-        .then((res) => res.json())
-        .then((data) => {
-          if (data && data.data) setAllAccounts(data.data);
+      axios
+        .get("http://localhost:8000/api/admin/accounts")
+        .then((res) => {
+          if (res.data && res.data.data) setAllAccounts(res.data.data);
+        })
+        .catch((err) => {
+          console.error("Error fetching accounts for autocomplete:", err);
         });
     }
   }, [isAddModalOpen]);
@@ -123,13 +166,13 @@ const Accounts = () => {
   // Fetch customers for autocomplete when modal opens
   useEffect(() => {
     if (isAddModalOpen) {
-      fetch("http://localhost:8000/api/admin/customers", {
-        method: "GET",
-        headers: { "Content-Type": "application/json" },
-      })
-        .then((res) => res.json())
-        .then((data) => {
-          if (data && data.data) setCustomerOptions(data.data);
+      axios
+        .get("http://localhost:8000/api/admin/customers")
+        .then((res) => {
+          if (res.data && res.data.data) setCustomerOptions(res.data.data);
+        })
+        .catch((err) => {
+          console.error("Error fetching customers for autocomplete:", err);
         });
     }
   }, [isAddModalOpen]);
@@ -167,67 +210,16 @@ const Accounts = () => {
   // ---- Load Data on Mount ----
   useEffect(() => {
     // Fetch accounts from API
-    const fetchAccounts = async () => {
-      try {
-        const response = await fetch(
-          "http://localhost:8000/api/admin/accounts",
-          {
-            method: "GET",
-            headers: {
-              "Content-Type": "application/json",
-            },
-          }
-        );
-
-        if (!response.ok) {
-          throw new Error("Failed to fetch accounts");
-        }
-
-        const data = await response.json();
-        console.log("API Response:", data);
-
-        if (data && data.data) {
-          // Transform the API response to match our frontend data structure
-          const transformedAccounts = data.data.map((account) => ({
-            id: account.accountNumber, // Using accountNumber as id
-            accountNumber: account.accountNumber,
-            userName: account.accountHolder,
-            accountType: account.accountType,
-            branch: account.branchName,
-            balance: account.accountBalance,
-            dateOpened: account.dateOpened
-              ? new Date(account.dateOpened).toISOString().split("T")[0]
-              : "N/A",
-            status: "Active", // Default status since it's not in the API response
-          }));
-          setAccounts(transformedAccounts);
-        } else {
-          setAccounts([]);
-          console.log("No accounts found in the database");
-        }
-      } catch (error) {
-        console.error("Error fetching accounts:", error);
-        setAccounts([]);
-      }
-    };
+    fetchAccounts();
 
     // Fetch branches from API
     const fetchBranches = async () => {
       try {
-        const response = await fetch("http://localhost:8000/api/admin/branch", {
-          method: "GET",
-          headers: {
-            "Content-Type": "application/json",
-          },
-        });
-
-        if (!response.ok) {
-          throw new Error("Failed to fetch branches");
-        }
-
-        const data = await response.json();
-        if (data && data.data) {
-          setBranches(data.data);
+        const response = await axios.get(
+          "http://localhost:8000/api/admin/branch"
+        );
+        if (response.data && response.data.data) {
+          setBranches(response.data.data);
         } else {
           setBranches([]);
         }
@@ -237,7 +229,6 @@ const Accounts = () => {
       }
     };
 
-    fetchAccounts();
     fetchBranches();
 
     // Keep the dummy customers for now until we implement the customers API
@@ -285,43 +276,18 @@ const Accounts = () => {
         customerID: selectedCustomer.id,
         accountType: data.accountType,
         currencyCode: data.currencyCode,
-        initialBalance: parseFloat(data.initialBalance),
+        balance: parseFloat(data.initialBalance),
         branchName: data.branchName,
       };
-
-      const response = await fetch("http://localhost:8000/api/admin/accounts", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
-
-      const responseData = await response.json();
-
-      if (!response.ok) {
-        throw new Error(responseData.message || "Failed to create account");
-      }
-
-      // Refresh accounts list
-      const accountsResponse = await fetch(
-        "http://localhost:8000/api/admin/accounts"
+      const response = await axios.post(
+        "http://localhost:8000/api/admin/accounts",
+        payload
       );
-      const accountsData = await accountsResponse.json();
-      if (accountsData && accountsData.data) {
-        const transformedAccounts = accountsData.data.map((account) => ({
-          id: account.accountNumber,
-          accountNumber: account.accountNumber,
-          userName: account.accountHolder,
-          accountType: account.accountType,
-          branch: account.branchName,
-          balance: account.accountBalance,
-          dateOpened: account.dateOpened
-            ? new Date(account.dateOpened).toISOString().split("T")[0]
-            : "N/A",
-          status: "Active",
-        }));
-        setAccounts(transformedAccounts);
+      if (response.data.status !== "success") {
+        throw new Error(response.data.message || "Failed to create account");
       }
-
+      // Refresh accounts list
+      await fetchAccounts();
       reset();
       setIsAddModalOpen(false);
       alert("Account created successfully!");
@@ -385,7 +351,8 @@ const Accounts = () => {
 
   /**
    * Handles deposit submission.
-   * Updates account balance and creates transaction record.
+   * Updates account balance and creates transaction record in backend.
+   * After success, refreshes accounts, and notifies other admin pages to refresh.
    */
   const handleDeposit = async (data) => {
     try {
@@ -398,48 +365,27 @@ const Accounts = () => {
         throw new Error("Account not found");
       }
 
-      // Create transaction record
-      const transaction = {
-        id: Date.now(), // Temporary ID generation
-        date: data.date,
-        amount: parseFloat(data.amount),
-        currency_id: 1, // ETB
-        type: "Deposit",
+      // Prepare deposit payload for backend (only send required fields)
+      const payload = {
         accountNumber: data.accountNumber,
-        customerName: accountToUpdate.userName,
-        branchName: accountToUpdate.branch,
-        description: "Manual Deposit",
+        amount: parseFloat(data.amount),
+        description: "Manual Deposit by Admin",
       };
 
-      // Update account balance
-      const updatedAccount = {
-        ...accountToUpdate,
-        balance: accountToUpdate.balance + parseFloat(data.amount),
-      };
-
-      // Update state
-      setAccounts((prev) =>
-        prev.map((acc) =>
-          acc.accountNumber === updatedAccount.accountNumber
-            ? updatedAccount
-            : acc
-        )
+      // Call backend API to process deposit (should update balance and create transaction)
+      const response = await axios.post(
+        "http://localhost:8000/api/admin/deposit",
+        payload
       );
+      if (response.data.status !== "success") {
+        throw new Error(response.data.message || "Failed to process deposit");
+      }
 
-      // TODO: API calls
-      // 1. Create transaction record
-      // await fetch("/api/admin/transactions", {
-      //   method: "POST",
-      //   headers: { "Content-Type": "application/json" },
-      //   body: JSON.stringify(transaction),
-      // });
+      // Refresh accounts list from backend
+      await fetchAccounts();
 
-      // 2. Update account balance
-      // await fetch(`/api/admin/accounts/${updatedAccount.id}/balance`, {
-      //   method: "PATCH",
-      //   headers: { "Content-Type": "application/json" },
-      //   body: JSON.stringify({ balance: updatedAccount.balance }),
-      // });
+      // Dispatch a custom event to notify other admin pages to refresh (Customers, Transactions, Dashboard)
+      window.dispatchEvent(new Event("admin-data-updated"));
 
       // Reset form and close modal
       reset();
@@ -449,7 +395,7 @@ const Accounts = () => {
       alert("Deposit processed successfully!");
     } catch (error) {
       console.error("Error processing deposit:", error);
-      alert("Failed to process deposit. Please try again.");
+      alert(error.message || "Failed to process deposit. Please try again.");
     }
   };
 
@@ -488,7 +434,23 @@ const Accounts = () => {
       });
       // Refresh accounts list after deletion
       const response = await api.get("/admin/accounts");
-      setAccounts(response.data?.data || []);
+      if (response.data && response.data.data) {
+        const transformedAccounts = response.data.data.map((account) => ({
+          id: account.accountNumber,
+          accountNumber: account.accountNumber,
+          userName: account.accountHolder,
+          accountType: account.accountType,
+          branch: account.branchName,
+          balance: account.accountBalance,
+          dateOpened: account.dateOpened
+            ? new Date(account.dateOpened).toISOString().split("T")[0]
+            : "N/A",
+          status: (account.status || "ACTIVE").toUpperCase(),
+        }));
+        setAccounts(transformedAccounts);
+      } else {
+        setAccounts([]);
+      }
       alert("Account deleted successfully!");
     } catch (error) {
       console.error("Error deleting account:", error);
@@ -498,6 +460,37 @@ const Accounts = () => {
       );
     }
   };
+
+  const handleDropdownToggle = (id) => {
+    if (dropdownOpenId === id) {
+      setDropdownOpenId(null);
+      return;
+    }
+    const btn = dropdownBtnRefs.current[id];
+    if (btn) {
+      const rect = btn.getBoundingClientRect();
+      setDropdownPosition({
+        top: rect.bottom + window.scrollY,
+        left: rect.right + window.scrollX - 180,
+      });
+    }
+    setDropdownOpenId(id);
+  };
+
+  const handleDropdownClose = () => setDropdownOpenId(null);
+
+  const openEditModal = (account) => {
+    setEditingAccount(account);
+    setValue("editAccountType", account.accountType);
+    setValue("editBranch", account.branch);
+    setValue("editBalance", account.balance);
+    setValue("editStatus", account.status);
+    setValue("editDateOpened", account.dateOpened);
+    setValue("editCurrencyCode", account.currencyCode || "ETB");
+    setIsEditModalOpen(true);
+  };
+
+  const closeEditModal = () => setIsEditModalOpen(false);
 
   return (
     <div className="p-6 bg-white rounded-xl shadow-md">
@@ -549,92 +542,125 @@ const Accounts = () => {
           className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
         >
           <option value="All">All Statuses</option>
-          <option value="Active">Active</option>
-          <option value="Closed">Closed</option>
+          <option value="ACTIVE">Active</option>
+          <option value="INACTIVE">Inactive</option>
+          <option value="CLOSED">Closed</option>
         </select>
       </div>
 
       {/* Accounts Table */}
-      <div className="overflow-x-auto">
-        <table className="min-w-full bg-white rounded-lg shadow-sm">
-          <thead className="bg-gray-50">
-            <tr>
-              <th className="p-3 text-left text-sm font-semibold text-gray-700">
-                Account #
-              </th>
-              <th className="p-3 text-left text-sm font-semibold text-gray-700">
-                User Name
-              </th>
-              <th className="p-3 text-left text-sm font-semibold text-gray-700">
-                Type
-              </th>
-              <th className="p-3 text-left text-sm font-semibold text-gray-700">
-                Branch
-              </th>
-              <th className="p-3 text-left text-sm font-semibold text-gray-700">
-                Balance
-              </th>
-              <th className="p-3 text-left text-sm font-semibold text-gray-700">
-                Date Opened
-              </th>
-              <th className="p-3 text-left text-sm font-semibold text-gray-700">
-                Status
-              </th>
-              <th className="p-3 text-left text-sm font-semibold text-gray-700">
-                Actions
-              </th>
-            </tr>
-          </thead>
-          <tbody>
-            {filteredAccounts.map((acc) => (
-              <tr
-                key={acc.id}
-                className="hover:bg-gray-100 even:bg-gray-50 odd:bg-white"
-              >
-                <td className="p-3 text-sm text-gray-700">
-                  {acc.accountNumber}
-                </td>
-                <td className="p-3 text-sm text-gray-700">{acc.userName}</td>
-                <td className="p-3 text-sm text-gray-700">{acc.accountType}</td>
-                <td className="p-3 text-sm text-gray-700">{acc.branch}</td>
-                <td className="p-3 text-sm text-gray-700">
-                  $
-                  {typeof acc.balance === "number"
-                    ? acc.balance.toLocaleString()
-                    : "0"}
-                </td>
-                <td className="p-3 text-sm text-gray-700">{acc.dateOpened}</td>
-                <td className="p-3 text-sm text-gray-700">{acc.status}</td>
-                <td className="p-3 text-sm text-gray-700">
-                  <button
-                    onClick={() => openDetailModal(acc)}
-                    className="bg-green-500 text-white px-3 py-1 rounded hover:bg-green-600 cursor-pointer"
-                  >
-                    View
-                  </button>
-                  <button
-                    onClick={() => handleDeleteAccount(acc)}
-                    className="bg-red-500 text-white px-2 py-1 rounded hover:bg-red-600 ml-2 cursor-pointer"
-                    title="Delete Account"
-                  >
-                    Delete
-                  </button>
-                </td>
-              </tr>
-            ))}
-            {filteredAccounts.length === 0 && (
+      {loading ? (
+        <div className="flex justify-center items-center h-64">
+          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
+        </div>
+      ) : (
+        <div className="overflow-x-auto w-full">
+          <table className="w-full min-w-[1100px] table-auto bg-white rounded-lg shadow-sm">
+            <thead className="bg-gray-50">
               <tr>
-                <td
-                  colSpan={8}
-                  className="p-3 text-center text-gray-500 italic"
-                >
-                  No accounts found.
-                </td>
+                <th className="p-3 text-left text-sm font-semibold text-gray-700">
+                  Account #
+                </th>
+                <th className="p-3 text-left text-sm font-semibold text-gray-700">
+                  User Name
+                </th>
+                <th className="p-3 text-left text-sm font-semibold text-gray-700">
+                  Type
+                </th>
+                <th className="p-3 text-left text-sm font-semibold text-gray-700">
+                  Branch
+                </th>
+                <th className="p-3 text-left text-sm font-semibold text-gray-700">
+                  Balance
+                </th>
+                <th className="p-3 text-left text-sm font-semibold text-gray-700">
+                  Date Opened
+                </th>
+                <th className="p-3 text-left text-sm font-semibold text-gray-700">
+                  Status
+                </th>
+                <th className="p-3 text-left text-sm font-semibold text-gray-700">
+                  Actions
+                </th>
               </tr>
-            )}
-          </tbody>
-        </table>
-      </div>
+            </thead>
+            <tbody>
+              {filteredAccounts.map((acc) => (
+                <tr
+                  key={acc.id}
+                  className="hover:bg-gray-100 even:bg-gray-50 odd:bg-white"
+                >
+                  <td className="p-3 text-sm text-gray-700">
+                    {acc.accountNumber}
+                  </td>
+                  <td className="p-3 text-sm text-gray-700">{acc.userName}</td>
+                  <td className="p-3 text-sm text-gray-700">
+                    {acc.accountType}
+                  </td>
+                  <td className="p-3 text-sm text-gray-700">{acc.branch}</td>
+                  <td className="p-3 text-sm text-gray-700">
+                    $
+                    {typeof acc.balance === "number"
+                      ? acc.balance.toLocaleString()
+                      : "0"}
+                  </td>
+                  <td className="p-3 text-sm text-gray-700">
+                    {acc.dateOpened}
+                  </td>
+                  <td className="p-3 text-sm text-gray-700">
+                    <span
+                      className={`inline-block px-3 py-1 rounded-full text-xs font-semibold transition-colors duration-200
+                        ${
+                          acc.status === "ACTIVE"
+                            ? "bg-green-100 text-green-700 hover:bg-green-700 hover:text-white"
+                            : acc.status === "INACTIVE"
+                            ? "bg-yellow-100 text-yellow-700 hover:bg-yellow-700 hover:text-white"
+                            : "bg-gray-300 text-gray-700 hover:bg-gray-700 hover:text-white"
+                        }
+                      `}
+                      style={{ cursor: "default" }}
+                    >
+                      {acc.status.charAt(0) + acc.status.slice(1).toLowerCase()}
+                    </span>
+                  </td>
+                  <td className="p-3 text-sm text-gray-700 relative">
+                    <button
+                      ref={(el) => (dropdownBtnRefs.current[acc.id] = el)}
+                      onClick={() => handleDropdownToggle(acc.id)}
+                      className="p-1 rounded hover:bg-gray-200 cursor-pointer flex items-center justify-center"
+                      aria-label="Actions"
+                      type="button"
+                    >
+                      <span className="inline-block">
+                        <svg
+                          width="24"
+                          height="24"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                        >
+                          <circle cx="5" cy="12" r="1.5" fill="#222" />
+                          <circle cx="12" cy="12" r="1.5" fill="#222" />
+                          <circle cx="19" cy="12" r="1.5" fill="#222" />
+                        </svg>
+                      </span>
+                    </button>
+                  </td>
+                </tr>
+              ))}
+              {filteredAccounts.length === 0 && (
+                <tr>
+                  <td
+                    colSpan={8}
+                    className="p-3 text-center text-gray-500 italic"
+                  >
+                    No accounts found.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      )}
 
       {/* ======== Add New Account Modal ======== */}
       {isAddModalOpen && (
@@ -812,179 +838,106 @@ const Accounts = () => {
       {/* ======== Account Detail Modal (View/Edit/Close) ======== */}
       {isDetailModalOpen && selectedAccount && (
         <div
-          className="fixed inset-0 flex items-center justify-center z-50 backdrop-blur-[2px] bg-transparent"
+          className="fixed inset-0 flex items-center justify-center z-50 backdrop-blur-[2px] bg-black/10"
           onClick={() => setIsDetailModalOpen(false)}
         >
           <div
-            className="bg-white p-8 rounded-xl shadow-xl max-w-lg w-full relative transition-transform duration-300 scale-100"
+            className="bg-white p-8 rounded-2xl shadow-2xl max-w-lg w-full relative"
             onClick={(e) => e.stopPropagation()}
           >
-            <h2 className="text-2xl font-bold text-gray-900 mb-4">
-              Account Details
-            </h2>
-
-            {/* Details & Edit Form */}
-            <form
-              onSubmit={handleSubmit(handleUpdateAccount)}
-              className="space-y-4"
-            >
-              {/* Account Number (read-only) */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700">
-                  Account #
-                </label>
-                <input
-                  type="text"
-                  value={selectedAccount.accountNumber}
-                  readOnly
-                  className="mt-1 block w-full px-3 py-2 border border-gray-300 bg-gray-100 rounded-md text-gray-700"
-                />
-              </div>
-
-              {/* User Name (dropdown) */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700">
-                  User Name
-                </label>
-                <select
-                  {...register("userName", {
-                    required: "User Name is required",
-                  })}
-                  defaultValue={selectedAccount.userName}
-                  className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                >
-                  <option value="">Select Customer</option>
-                  {customerList.map((cust) => (
-                    <option key={cust.id} value={cust.fullName}>
-                      {cust.fullName}
-                    </option>
-                  ))}
-                </select>
-                {errors.userName && (
-                  <p className="text-sm text-red-600">
-                    {errors.userName.message}
-                  </p>
-                )}
-              </div>
-
-              {/* Account Type */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700">
-                  Account Type
-                </label>
-                <select
-                  {...register("accountType", {
-                    required: "Account Type is required",
-                  })}
-                  defaultValue={selectedAccount.accountType}
-                  className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                >
-                  <option value="Savings">Savings</option>
-                  <option value="Checking">Checking</option>
-                </select>
-                {errors.accountType && (
-                  <p className="text-sm text-red-600">
-                    {errors.accountType.message}
-                  </p>
-                )}
-              </div>
-
-              {/* Branch */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700">
-                  Branch
-                </label>
-                <select
-                  {...register("branch", { required: "Branch is required" })}
-                  defaultValue={selectedAccount.branch}
-                  className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                >
-                  <option value="">Select Branch</option>
-                  {branches.map((branch) => (
-                    <option key={branch.id} value={branch.branchName}>
-                      {branch.branchName}
-                    </option>
-                  ))}
-                </select>
-                {errors.branch && (
-                  <p className="text-sm text-red-600">
-                    {errors.branch.message}
-                  </p>
-                )}
-              </div>
-
-              {/* Balance (read-only) */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700">
-                  Balance
-                </label>
-                <input
-                  type="text"
-                  value={`$${selectedAccount.balance.toLocaleString()}`}
-                  readOnly
-                  className="mt-1 block w-full px-3 py-2 border border-gray-300 bg-gray-100 rounded-md text-gray-700"
-                />
-              </div>
-
-              {/* Date Opened (read-only) */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700">
-                  Date Opened
-                </label>
-                <input
-                  type="text"
-                  value={selectedAccount.dateOpened}
-                  readOnly
-                  className="mt-1 block w-full px-3 py-2 border border-gray-300 bg-gray-100 rounded-md text-gray-700"
-                />
-              </div>
-
-              {/* Status (editable) */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700">
-                  Status
-                </label>
-                <select
-                  name="status"
-                  value={selectedAccount.status}
-                  onChange={(e) =>
-                    setSelectedAccount((prev) => ({
-                      ...prev,
-                      status: e.target.value,
-                    }))
-                  }
-                  className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                >
-                  <option value="Active">Active</option>
-                  <option value="Closed">Closed</option>
-                </select>
-              </div>
-
-              {/* Action Buttons: Update & Close Account */}
-              <div className="flex justify-between items-center mt-6">
-                <button
-                  type="submit"
-                  className="bg-green-500 text-white px-4 py-2 rounded-md hover:bg-green-600 cursor-pointer"
-                >
-                  Save Changes
-                </button>
-                <button
-                  type="button"
-                  onClick={handleCloseAccount}
-                  className="bg-red-500 text-white px-4 py-2 rounded-md hover:bg-red-600 cursor-pointer"
-                >
-                  Close Account
-                </button>
-              </div>
-            </form>
-
-            {/* Close (×) Button */}
             <button
               onClick={() => setIsDetailModalOpen(false)}
-              className="absolute top-4 right-4 text-gray-500 hover:text-gray-700 cursor-pointer text-2xl"
+              className="absolute top-4 right-4 text-gray-400 hover:text-gray-700 cursor-pointer"
+              aria-label="Close"
             >
               &times;
             </button>
+            <div className="flex items-center gap-4 mb-6">
+              <div className="w-16 h-16 rounded-full bg-blue-100 flex items-center justify-center text-2xl font-bold text-blue-700">
+                {selectedAccount.userName
+                  .split(" ")
+                  .map((n) => n[0])
+                  .join("")}
+              </div>
+              <div>
+                <div className="flex items-center gap-2">
+                  <h2 className="text-2xl font-bold text-gray-900">
+                    {selectedAccount.userName}
+                  </h2>
+                  <span
+                    className={`inline-block px-3 py-1 rounded-full text-xs font-semibold transition-colors duration-200
+                      ${
+                        selectedAccount.status === "ACTIVE"
+                          ? "bg-green-100 text-green-700 hover:bg-green-700 hover:text-white"
+                          : selectedAccount.status === "INACTIVE"
+                          ? "bg-yellow-100 text-yellow-700 hover:bg-yellow-700 hover:text-white"
+                          : "bg-gray-300 text-gray-700 hover:bg-gray-700 hover:text-white"
+                      }
+                    `}
+                    style={{ cursor: "default" }}
+                  >
+                    {selectedAccount.status.charAt(0) +
+                      selectedAccount.status.slice(1).toLowerCase()}
+                  </span>
+                </div>
+                <div className="text-gray-500 text-sm mt-1">
+                  {selectedAccount.accountType} Account
+                </div>
+              </div>
+            </div>
+            <div className="space-y-3 mb-6">
+              <div className="flex items-center gap-2 text-gray-700">
+                <svg
+                  className="w-5 h-5"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  viewBox="0 0 24 24"
+                >
+                  <rect x="3" y="7" width="18" height="10" rx="2" />
+                  <path d="M3 10h18" />
+                </svg>
+                <span>{selectedAccount.accountNumber}</span>
+              </div>
+              <div className="flex items-center gap-2 text-gray-700">
+                <svg
+                  className="w-5 h-5"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  viewBox="0 0 24 24"
+                >
+                  <path d="M12 2v20M2 12h20" />
+                </svg>
+                <span>{selectedAccount.branch}</span>
+              </div>
+              <div className="flex items-center gap-2 text-gray-700">
+                <svg
+                  className="w-5 h-5"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  viewBox="0 0 24 24"
+                >
+                  <path d="M12 8v4l3 3" />
+                </svg>
+                <span>
+                  Balance: ${selectedAccount.balance.toLocaleString()}
+                </span>
+              </div>
+              <div className="flex items-center gap-2 text-gray-700">
+                <svg
+                  className="w-5 h-5"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  viewBox="0 0 24 24"
+                >
+                  <path d="M8 7V3m8 4V3M3 11h18M5 19h14a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2Z" />
+                </svg>
+                <span>Date Opened: {selectedAccount.dateOpened}</span>
+              </div>
+            </div>
           </div>
         </div>
       )}
@@ -1017,7 +970,7 @@ const Accounts = () => {
                 >
                   <option value="">Select Account</option>
                   {accounts
-                    .filter((acc) => acc.status === "Active")
+                    .filter((acc) => acc.status === "ACTIVE")
                     .map((acc) => (
                       <option key={acc.id} value={acc.accountNumber}>
                         {acc.accountNumber} - {acc.userName}
@@ -1134,6 +1087,165 @@ const Accounts = () => {
           </div>
         </div>
       )}
+
+      {/* Edit Account Modal */}
+      {isEditModalOpen && editingAccount && (
+        <div
+          className="fixed inset-0 flex items-center justify-center z-50 backdrop-blur-[2px] bg-black/10"
+          onClick={closeEditModal}
+        >
+          <div
+            className="bg-white p-8 rounded-2xl shadow-2xl max-w-2xl w-full relative"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button
+              onClick={closeEditModal}
+              className="absolute top-4 right-4 text-gray-400 hover:text-gray-700 cursor-pointer"
+              aria-label="Close"
+            >
+              &times;
+            </button>
+            <h2 className="text-2xl font-bold text-gray-900 mb-4">
+              Edit Account
+            </h2>
+            <form
+              onSubmit={handleSubmit(async (data) => {
+                try {
+                  const payload = {
+                    accountType: data.editAccountType,
+                    currencyCode: data.editCurrencyCode,
+                    balance: parseFloat(data.editBalance),
+                    status: data.editStatus,
+                  };
+                  await axios.put(
+                    `http://localhost:8000/api/admin/accounts/${editingAccount.accountNumber}`,
+                    payload,
+                    { headers: { "Content-Type": "application/json" } }
+                  );
+                  setAccounts((prev) =>
+                    prev.map((acc) =>
+                      acc.accountNumber === editingAccount.accountNumber
+                        ? { ...acc, ...payload }
+                        : acc
+                    )
+                  );
+                  closeEditModal();
+                  alert("Account updated successfully!");
+                } catch (err) {
+                  alert("Failed to update account");
+                }
+              })}
+              className="grid grid-cols-1 md:grid-cols-2 gap-4"
+            >
+              <div>
+                <label className="block text-sm font-medium text-gray-700">
+                  Account Type
+                </label>
+                <select
+                  {...register("editAccountType", { required: true })}
+                  className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                >
+                  <option value="SAVINGS">Savings</option>
+                  <option value="CHECKING">Checking</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700">
+                  Balance
+                </label>
+                <input
+                  type="number"
+                  step="0.01"
+                  {...register("editBalance", { required: true, min: 0 })}
+                  className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700">
+                  Status
+                </label>
+                <select
+                  {...register("editStatus", { required: true })}
+                  className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                >
+                  <option value="ACTIVE">Active</option>
+                  <option value="INACTIVE">Inactive</option>
+                  <option value="CLOSED">Closed</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700">
+                  Currency
+                </label>
+                <select
+                  {...register("editCurrencyCode", { required: true })}
+                  className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                >
+                  <option value="ETB">ETB</option>
+                </select>
+              </div>
+              <div className="md:col-span-2 flex justify-end mt-4">
+                <button
+                  type="submit"
+                  className="bg-blue-500 text-white px-6 py-2 rounded-md hover:bg-blue-600 cursor-pointer"
+                >
+                  Save Changes
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Portal Dropdown */}
+      {dropdownOpenId !== null &&
+        (() => {
+          const acc = filteredAccounts.find((a) => a.id === dropdownOpenId);
+          if (!acc) return null;
+          return ReactDOM.createPortal(
+            <div
+              style={{
+                position: "absolute",
+                top: dropdownPosition.top,
+                left: dropdownPosition.left,
+                zIndex: 9999,
+                width: 180,
+              }}
+              className="bg-white border border-gray-200 rounded-lg shadow-lg flex flex-col py-2 animate-fade-in"
+              onMouseLeave={handleDropdownClose}
+            >
+              <button
+                onClick={() => {
+                  openDetailModal(acc);
+                  handleDropdownClose();
+                }}
+                className="flex items-center w-full px-4 py-2 text-sm hover:bg-gray-100 text-gray-800 gap-2 cursor-pointer"
+              >
+                <Eye className="w-4 h-4 mr-2" /> View Details
+              </button>
+              <button
+                onClick={() => {
+                  openEditModal(acc);
+                  handleDropdownClose();
+                }}
+                className="flex items-center w-full px-4 py-2 text-sm hover:bg-gray-100 text-gray-800 gap-2 cursor-pointer"
+              >
+                <Edit2 className="w-4 h-4 mr-2" /> Edit Account
+              </button>
+              <div className="border-t border-gray-200 my-1" />
+              <button
+                onClick={() => {
+                  handleDeleteAccount(acc);
+                  handleDropdownClose();
+                }}
+                className="flex items-center w-full px-4 py-2 text-sm hover:bg-gray-100 text-red-600 gap-2 cursor-pointer"
+              >
+                <Trash2 className="w-4 h-4 mr-2" /> Delete Account
+              </button>
+            </div>,
+            document.body
+          );
+        })()}
     </div>
   );
 };
