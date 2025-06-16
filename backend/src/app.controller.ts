@@ -1,12 +1,17 @@
-import { Controller, Get } from '@nestjs/common';
+import { Controller, Delete, Get } from '@nestjs/common';
 import { AppService } from './app.service';
 
-@Controller()
+@Controller('notifications')
 export class AppController {
   constructor(private readonly appService: AppService) {}
 
   @Get()
-  getHello(): string {
-    return this.appService.getHello();
+  getHello() {
+    return this.appService.getAllNotifications();
+  }
+
+  @Delete('/delete')
+  deleteNotification() {
+    return this.appService.deleteAllNotifications();
   }
 }

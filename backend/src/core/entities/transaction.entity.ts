@@ -27,7 +27,4 @@ export class Transaction {
 
   @ManyToOne(() => Account, (account) => account.transactions, { onDelete: 'CASCADE' })
   account: Account;
-
-
-
 }
