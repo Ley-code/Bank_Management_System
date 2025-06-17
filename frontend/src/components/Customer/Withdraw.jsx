@@ -19,7 +19,7 @@ const Withdraw = () => {
   useEffect(() => {
     const fetchAccounts = async () => {
       try {
-        const customerId = "d799ac61-ce27-41c3-8783-4da193564046"; // Use the same customer ID as Dashboard
+        const customerId = "d15c6c1c-8e38-422f-a221-ff02afc98d86"; // Use the same customer ID as Dashboard
         
         // Fetch user accounts
         const accountsResponse = await fetch(`http://localhost:8000/api/user/${customerId}/accounts`);
